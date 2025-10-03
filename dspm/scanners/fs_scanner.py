@@ -87,12 +87,23 @@ class FileSystemScanner(Scanner):
             detailed = classify_text_detailed(text)
             # Apply context-aware FP reduction
             filtered = apply_context_filters(detailed, text)
+            # Compute line numbers for matches within the sampled text
+            def line_of(match_str: str) -> int:
+                idx = text.find(match_str)
+                if idx < 0:
+                    return 1
+                return text.count("\n", 0, idx) + 1
+
             # Build classifications and detections from filtered results
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
-            detections = [
-                Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])
-                for (b, name, matches) in filtered
-            ]
+            detections = []
+            detection_lines = []
+            for (b, name, matches) in filtered:
+                detections.append(Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200]))
+                # Track the earliest line among the matches for this detection
+                line_candidates = [line_of(m) for m in matches]
+                if line_candidates:
+                    detection_lines.append(min(line_candidates))
             if not classifications:
                 continue
 
@@ -106,7 +117,7 @@ class FileSystemScanner(Scanner):
             yield Finding(
                 id=f"fs:{os.path.relpath(path, root) if root != path else name}",
                 resource=root,
-                location=path,
+                location=(f"{path}:{min(detection_lines)}" if detection_lines else path),
                 classifications=classifications,
                 evidence=[Evidence(snippet=text[:200])],
                 severity=sev,
