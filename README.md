@@ -107,7 +107,7 @@ ghostlight scan --scanner rds --target "rds://mydb-instance/mysql:appdb:users,or
 
 # Postgres (direct connection via DSN URL)
 ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require"
-ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require" --list-tables --show-sql
+ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require" --list-tables --show-sql --sample-rows 1000
 
 # AWS Comprehensive (auto-discovers ALL AWS resources: RDS + S3 + EC2)
 export AWS_ACCESS_KEY_ID=AKIAXXXXXXXX
@@ -152,6 +152,8 @@ Databases
 Tips
 - Use `--list-tables` (DB scans) to print discovered tables.
 - Use `--show-sql` to log executed SQL.
+- Use `--strict` to aggressively reduce false positives (requires multiple detections or matches).
+- Tune `--min-entropy` (default 3.5) for secrets; raise to reduce noise.
 - Increase `--sample-bytes` for deeper content sampling.
 
 ### AWS Comprehensive Scanning

@@ -293,11 +293,11 @@ def shannon_entropy(s: str) -> float:
     return -sum(p * math.log(p, 2) for p in probs)
 
 
-def filter_bearer_tokens(matches: List[str]) -> List[str]:
+def filter_bearer_tokens(matches: List[str], min_entropy: float = 3.5) -> List[str]:
     """Drop low-entropy strings that look like placeholders."""
     filtered: List[str] = []
     for m in matches:
-        if shannon_entropy(m) >= 3.5:
+        if shannon_entropy(m) >= min_entropy:
             filtered.append(m)
     return filtered
 
@@ -361,7 +361,8 @@ def apply_context_filters(
     detections: List[Tuple[str, str, List[str]]],
     text: str,
     table_name: str = None,
-    db_engine: str = "mysql"
+    db_engine: str = "mysql",
+    min_entropy: float = 3.5
 ) -> List[Tuple[str, str, List[str]]]:
     """
     Apply context-aware filters to reduce false positives
@@ -403,7 +404,7 @@ def apply_context_filters(
         elif pattern_name == "IP.JWT":
             filtered_matches = [m for m in matches if is_valid_jwt(m)]
         elif pattern_name == "Secrets.Generic.BearerToken":
-            filtered_matches = filter_bearer_tokens(matches)
+            filtered_matches = filter_bearer_tokens(matches, min_entropy=min_entropy)
         elif pattern_name == "PII.Email":
             filtered_matches = filter_email_matches(matches)
         elif pattern_name == "Secrets.AWS.SecretAccessKey":

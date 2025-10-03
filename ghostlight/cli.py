@@ -15,6 +15,65 @@ from .reporters.markdown_reporter import to_markdown as reporter_md
 console = Console()
 
 
+def _print_magnifier():
+    # Respect opt-out
+    if os.environ.get("GHOSTLIGHT_NO_BANNER"):
+        return
+    # Creative banners (only '*' and spaces)
+    banner_a = "\n".join([
+        "           ******           ",
+        "        ************        ",
+        "      ************** **     ",
+        "     ***************  **    ",
+        "    ***************    **   ",
+        "    ***************    **   ",
+        "     ***************  **    ",
+        "      ************** **     ",
+        "        ************        ",
+        "            ****       **   ",
+        "                       **   ",
+        "                        **  ",
+        "                         ** ",
+    ])
+    banner_b = "\n".join([
+        "        *****              ",
+        "     ***********           ",
+        "   ***************         ",
+        "  *****************   **   ",
+        "  *****************  **    ",
+        "  ***************** **     ",
+        "   *************** **      ",
+        "     ***********  **       ",
+        "        *****    **        ",
+        "                 **        ",
+        "                 **        ",
+        "                 **        ",
+    ])
+    banner_c = "\n".join([
+        "       ***   ***           ",
+        "     ****** ******         ",
+        "    ***************        ",
+        "   ****  *****  ****   **  ",
+        "   ***    ***    ***  **   ",
+        "    ***   ***   ***  **    ",
+        "     *************  **     ",
+        "       *********   **      ",
+        "          *****   **       ",
+        "                  **       ",
+        "                   **      ",
+    ])
+    # Pick one based on current seconds
+    try:
+        import time
+        idx = int(time.time()) % 3
+    except Exception:
+        idx = 0
+    art = [banner_a, banner_b, banner_c][idx]
+    try:
+        console.print(f"[cyan]{art}[/cyan]\n")
+    except Exception:
+        print(art + "\n")
+
 @click.group(help="ghostlight scanning CLI")
 @click.version_option(__version__, prog_name="ghostlight")
 def main():
@@ -27,11 +86,16 @@ def main():
 @click.option("--format", "fmt", type=click.Choice(["table","json","md"]), default="table")
 @click.option("--output", type=click.Path(dir_okay=False), default=None, help="Optional output file")
 @click.option("--max-file-mb", type=int, default=20)
-@click.option("--sample-bytes", type=int, default=2048)
+@click.option("--sample-bytes", type=int, default=65536)
 @click.option("--list-tables", is_flag=True, default=False, help="List tables during DB scans")
 @click.option("--show-sql", is_flag=True, default=False, help="Show SQL queries executed")
-def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_file_mb: int, sample_bytes: int, list_tables: bool, show_sql: bool):
-    config = ScanConfig(max_file_mb=max_file_mb, sample_bytes=sample_bytes, list_tables=list_tables, show_sql=show_sql)
+@click.option("--strict", is_flag=True, default=False, help="Reduce false positives aggressively")
+@click.option("--min-entropy", type=float, default=3.5, help="Min entropy for secrets (higher = stricter)")
+@click.option("--deep", is_flag=True, default=True, help="Deep scan (more bytes/rows by default)")
+@click.option("--sample-rows", type=int, default=1000, help="Rows to sample per DB table")
+def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_file_mb: int, sample_bytes: int, list_tables: bool, show_sql: bool, strict: bool, min_entropy: float, deep: bool, sample_rows: int):
+    _print_magnifier()
+    config = ScanConfig(max_file_mb=max_file_mb, sample_bytes=sample_bytes, list_tables=list_tables, show_sql=show_sql, strict=strict, min_entropy=min_entropy, deep=deep, sample_rows=sample_rows)
     
     # Preflight connectivity checks per scanner
     def preflight_check(name: str, tgt: str) -> bool:
@@ -285,6 +349,7 @@ def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_fil
 @click.option("--scanner", type=click.Choice(["slack", "s3", "gcs"]), required=True)
 @click.option("--target", type=str, required=True, help="Target identifier (e.g., slack: xoxb-...[:CHANNEL_ID])")
 def test_cmd(scanner: str, target: str):
+    _print_magnifier()
     """Lightweight connectivity checks.
 
     slack: target = xoxb-token[:CHANNEL_ID]
@@ -374,6 +439,7 @@ def test_cmd(scanner: str, target: str):
 @click.option("--source", type=click.Choice(["postgres", "mysql", "rds"]), required=True)
 @click.option("--target", type=str, required=True, help="DSN URL for postgres/mysql, or rds://identifier[/engine:db]")
 def list_tables_cmd(source: str, target: str):
+    _print_magnifier()
     try:
         if source == "postgres":
             try:

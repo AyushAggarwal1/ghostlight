@@ -43,7 +43,7 @@ class GCSScanner(Scanner):
                 continue
 
             detailed = classify_text_detailed(text)
-            filtered = apply_context_filters(detailed, text)
+            filtered = apply_context_filters(detailed, text, min_entropy=config.min_entropy)
             if not filtered:
                 continue
 
@@ -51,16 +51,31 @@ class GCSScanner(Scanner):
                 Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])
                 for (b, name, matches) in filtered
             ]
+            # Strict mode guard
+            if config.strict and not (len(detections) >= 2 or sum(len(d.matches) for d in detections) >= 2):
+                continue
             sev, desc = score_severity(len(detections), sum(len(d.matches) for d in detections))
             sens, sens_factors = compute_sensitivity_score(detections)
             expo, expo_factors = compute_exposure_factor("gcs", {})
             risk, risk_level = compute_risk(sens, expo)
 
             scanned += 1
+            # Earliest line across matches
+            def line_of(match_str: str) -> int:
+                idx = text.find(match_str)
+                if idx < 0:
+                    return 1
+                return text.count("\n", 0, idx) + 1
+            earliest_line = None
+            for (_b, _n, matches) in filtered:
+                for m in matches:
+                    ln = line_of(m)
+                    earliest_line = ln if earliest_line is None else min(earliest_line, ln)
+
             yield Finding(
                 id=f"gcs:{bucket_name}/{blob.name}",
                 resource=bucket_name,
-                location=f"gs://{bucket_name}/{blob.name}",
+                location=f"gs://{bucket_name}/{blob.name}:{earliest_line or 1}",
                 classifications=[f"{b}:{n}" for (b, n, _m) in filtered],
                 evidence=[Evidence(snippet=text[:200])],
                 severity=sev,

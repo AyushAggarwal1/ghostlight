@@ -85,8 +85,8 @@ class FileSystemScanner(Scanner):
 
             labels = classify_text(text)
             detailed = classify_text_detailed(text)
-            # Apply context-aware FP reduction
-            filtered = apply_context_filters(detailed, text)
+            # Apply context-aware FP reduction (entropy-aware)
+            filtered = apply_context_filters(detailed, text, min_entropy=config.min_entropy)
             # Compute line numbers for matches within the sampled text
             def line_of(match_str: str) -> int:
                 idx = text.find(match_str)
@@ -104,6 +104,9 @@ class FileSystemScanner(Scanner):
                 line_candidates = [line_of(m) for m in matches]
                 if line_candidates:
                     detection_lines.append(min(line_candidates))
+            # Strict mode: require >=2 detections or >=2 total matches
+            if config.strict and not (len(detections) >= 2 or sum(len(d.matches) for d in detections) >= 2):
+                continue
             if not classifications:
                 continue
 

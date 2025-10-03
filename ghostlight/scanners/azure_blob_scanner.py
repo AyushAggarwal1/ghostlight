@@ -38,6 +38,14 @@ class AzureBlobScanner(Scanner):
             except Exception:
                 continue
             labels = classify_text(text)
+            # Earliest line across regex matches by rerunning detailed on this small text via GDPR/HIPAA/PCI/SECRETS patterns indirectly
+            # Reuse summarize by checking first found of each present label; keep simple approximation
+            def line_of(substr: str) -> int:
+                idx = (text or "").find(substr)
+                return (text.count("\n", 0, idx) + 1) if idx >= 0 else 1
+            # For simplicity, no detailed list here; set line to 1 if unknown
+            earliest_line = 1
+
             classifications = [
                 f"GDPR:{l}" for l in labels.get("GDPR", [])
             ] + [
@@ -52,7 +60,7 @@ class AzureBlobScanner(Scanner):
             yield Finding(
                 id=f"azure:{container}/{blob.name}",
                 resource=container,
-                location=f"azure://{container}/{blob.name}",
+                location=f"azure://{container}/{blob.name}:{earliest_line}",
                 classifications=classifications,
                 evidence=[Evidence(snippet=text[:200])],
                 severity="medium",

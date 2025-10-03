@@ -240,7 +240,7 @@ class RDSScanner(Scanner):
                 row_count = cur.fetchone()[0]
                 
                 # Sample rows
-                sql_sample = f'SELECT * FROM "{table}" LIMIT 100'
+                sql_sample = f'SELECT * FROM "{table}" LIMIT {config.sample_rows}'
                 if config.show_sql:
                     logger.info(f"SQL: {sql_sample}")
                 cur.execute(sql_sample)
@@ -427,7 +427,7 @@ class RDSScanner(Scanner):
                 row_count = cur.fetchone()[0]
                 
                 # Sample rows
-                sql_sample = f"SELECT * FROM `{table}` LIMIT 100"
+                sql_sample = f"SELECT * FROM `{table}` LIMIT {config.sample_rows}"
                 if config.show_sql:
                     logger.info(f"SQL: {sql_sample}")
                 cur.execute(sql_sample)

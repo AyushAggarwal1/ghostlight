@@ -141,6 +141,18 @@ class VMScanner(Scanner):
                     f"IP:{l}" for l in labels.get("IP", [])
                 ]
                 
+                # Compute earliest line across matches
+                def line_of(match_str: str) -> int:
+                    idx = text.find(match_str)
+                    if idx < 0:
+                        return 1
+                    return text.count("\n", 0, idx) + 1
+                earliest_line = None
+                for (_b, _n, matches) in detailed:
+                    for m in matches:
+                        ln = line_of(m)
+                        earliest_line = ln if earliest_line is None else min(earliest_line, ln)
+
                 detections = [
                     Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])
                     for (b, name, matches) in detailed
@@ -149,6 +161,9 @@ class VMScanner(Scanner):
                 if not classifications:
                     continue
                 
+                # Strict mode guard
+                if config.strict and not (len(detections) >= 2 or sum(len(d.matches) for d in detections) >= 2):
+                    continue
                 sev, desc = score_severity(len(detections), sum(len(d.matches) for d in detections))
                 sens, sens_factors = compute_sensitivity_score(detections)
                 expo, expo_factors = compute_exposure_factor("vm", {"host": host})
@@ -159,7 +174,7 @@ class VMScanner(Scanner):
                 yield Finding(
                     id=f"vm:{host}{full_path}",
                     resource=host,
-                    location=f"ssh://{user}@{host}{full_path}",
+                    location=f"ssh://{user}@{host}{full_path}:{earliest_line or 1}",
                     classifications=classifications,
                     evidence=[Evidence(snippet=text[:200])],
                     severity=sev,

@@ -58,12 +58,27 @@ class S3Scanner(Scanner):
                         continue
                     labels = classify_text(text)
                     detailed = classify_text_detailed(text)
-                    filtered = apply_context_filters(detailed, text)
+                    filtered = apply_context_filters(detailed, text, min_entropy=config.min_entropy)
                     classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
+                    # Compute earliest line across matches
+                    def line_of(match_str: str) -> int:
+                        idx = text.find(match_str)
+                        if idx < 0:
+                            return 1
+                        return text.count("\n", 0, idx) + 1
+                    earliest_line = None
+                    for (_b, _n, matches) in filtered:
+                        for m in matches:
+                            ln = line_of(m)
+                            earliest_line = ln if earliest_line is None else min(earliest_line, ln)
+
                     detections = [
                         Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])
                         for (b, name, matches) in filtered
                     ]
+                    # Strict mode: require multiple detections or 2+ matches
+                    if config.strict and not (len(detections) >= 2 or sum(len(d.matches) for d in detections) >= 2):
+                        continue
                     if not classifications:
                         continue
                     # Build metadata for the finding
@@ -102,7 +117,7 @@ class S3Scanner(Scanner):
                     yield Finding(
                         id=f"s3:{bucket}/{key}",
                         resource=bucket,
-                        location=f"s3://{bucket}/{key}",
+                        location=f"s3://{bucket}/{key}:{earliest_line or 1}",
                         classifications=classifications,
                         evidence=[Evidence(snippet=text[:200])],
                         severity=sev,

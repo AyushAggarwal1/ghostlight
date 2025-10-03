@@ -107,7 +107,7 @@ class PostgresScanner(Scanner):
                 row_count = int(cur.fetchone()[0])
 
                 # Sample rows
-                sql_sample = f'SELECT * FROM "{schema}"."{table}" LIMIT 100'
+                sql_sample = f'SELECT * FROM "{schema}"."{table}" LIMIT {config.sample_rows}'
                 if config.show_sql:
                     from ghostlight.utils.logging import get_logger
                     get_logger(__name__).info(f"SQL: {sql_sample}")
@@ -234,7 +234,7 @@ class MySQLScanner(Scanner):
                 row_count = int(cur.fetchone()[0])
 
                 # Sample rows
-                sql_sample = f"SELECT * FROM `{table}` LIMIT 100"
+                sql_sample = f"SELECT * FROM `{table}` LIMIT {config.sample_rows}"
                 if config.show_sql:
                     from ghostlight.utils.logging import get_logger
                     get_logger(__name__).info(f"SQL: {sql_sample}")

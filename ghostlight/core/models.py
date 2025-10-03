@@ -38,10 +38,16 @@ class ScanConfig:
     include: List[str] = field(default_factory=list)
     exclude: List[str] = field(default_factory=list)
     max_file_mb: int = 20
-    sample_bytes: int = 2048
+    sample_bytes: int = 65536
     # DB scanning verbosity
     list_tables: bool = False
     show_sql: bool = False
+    # FP reduction
+    strict: bool = False           # Drop single, low-confidence detections
+    min_entropy: float = 3.5       # Entropy threshold for secrets
+    # Deep scanning
+    deep: bool = True
+    sample_rows: int = 1000
 
 
 @dataclass
