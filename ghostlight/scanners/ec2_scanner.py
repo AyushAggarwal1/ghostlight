@@ -14,10 +14,10 @@ try:
 except Exception:  # pragma: no cover
     boto3 = None
 
-from dspm.classify.engine import classify_text, classify_text_detailed, score_severity
-from dspm.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
-from dspm.core.models import Evidence, Finding, ScanConfig, Detection
-from dspm.utils.logging import get_logger
+from ghostlight.classify.engine import classify_text, classify_text_detailed, score_severity
+from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
+from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.utils.logging import get_logger
 from .base import Scanner
 
 logger = get_logger(__name__)

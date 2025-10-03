@@ -7,8 +7,8 @@ try:
 except Exception:  # pragma: no cover
     BlobServiceClient = None
 
-from dspm.classify.engine import classify_text
-from dspm.core.models import Evidence, Finding, ScanConfig
+from ghostlight.classify.engine import classify_text
+from ghostlight.core.models import Evidence, Finding, ScanConfig
 from .base import Scanner
 
 

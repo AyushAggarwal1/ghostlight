@@ -12,8 +12,8 @@ try:
 except Exception:  # pragma: no cover
     boto3 = None
 
-from dspm.core.models import Finding, ScanConfig
-from dspm.utils.logging import get_logger
+from ghostlight.core.models import Finding, ScanConfig
+from ghostlight.utils.logging import get_logger
 from .base import Scanner
 from .rds_scanner import RDSScanner
 from .s3_scanner import S3Scanner

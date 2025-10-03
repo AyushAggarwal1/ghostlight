@@ -9,8 +9,8 @@ except Exception:  # pragma: no cover
     boto3 = None
     ClientError = Exception  # type: ignore
 
-from dspm.utils.logging import get_logger
-from dspm.utils.retry import retry_on_exception
+from ghostlight.utils.logging import get_logger
+from ghostlight.utils.retry import retry_on_exception
 
 logger = get_logger(__name__)
 

@@ -13,13 +13,13 @@ authors = [{name = "Your Name", email = "you@example.com"}]
 dependencies = []
 
 [project.scripts]
-ghostlight = "dspm.cli:main"
+ghostlight = "ghostlight.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["dspm*"]
+include = ["ghostlight*"]
 exclude = ["tests*"]
 
