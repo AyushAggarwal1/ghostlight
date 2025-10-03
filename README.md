@@ -109,25 +109,31 @@ ghostlight scan --scanner ec2 --target i-1234567890abcdef0 --format table
 Supported Scanners
 ------------------
 
-| Scanner | Description | Example |
-|---|---|---|
-| <img src="assets/icons/fs.svg" width="28" /> Filesystem (`fs`) | Scan local files and folders | `ghostlight scan --scanner fs --target /path/to/dir` |
-| <img src="assets/icons/git.svg" width="28" /> Git (`git`) | Scan local or remote repositories | `ghostlight scan --scanner git --target https://github.com/user/repo.git` |
-| <img src="assets/icons/s3.svg" width="28" /> Amazon S3 (`s3`) | Scan bucket or prefix | `ghostlight scan --scanner s3 --target my-bucket/prefix` |
-| <img src="assets/icons/gcs.svg" width="28" /> Google Cloud Storage (`gcs`) | Scan bucket or prefix | `ghostlight scan --scanner gcs --target my-bucket` |
-| <img src="assets/icons/azure.svg" width="28" /> Azure Blob (`azure`) | Scan via connection string | `ghostlight scan --scanner azure --target "<conn>|container/prefix"` |
-| <img src="assets/icons/gdrive.svg" width="28" /> Google Drive (`gdrive`) | Scan drive via default/service account | `ghostlight scan --scanner gdrive --target default` |
-| <img src="assets/icons/gdrive.svg" width="28" /> GDrive Workspace (`gdrive_workspace`) | Domain-wide delegated scan | `ghostlight scan --scanner gdrive_workspace --target /path/to/delegated.json` |
-| <img src="assets/icons/slack.svg" width="28" /> Slack (`slack`) | Scan messages/files via bot | `ghostlight scan --scanner slack --target "xoxb-...:C12345"` |
-| <img src="assets/icons/vm.svg" width="28" /> VM over SSH (`vm`) | Scan remote files via SSH | `ghostlight scan --scanner vm --target "user@host:/etc,/var/log"` |
-| <img src="assets/icons/rds.svg" width="28" /> AWS RDS (`rds`) | Postgres/MySQL with auto-detect | `ghostlight scan --scanner rds --target "rds://my-instance-id"` |
-| <img src="assets/icons/postgres.svg" width="28" /> PostgreSQL (`postgres`) | Direct DSN | `ghostlight scan --scanner postgres --target "postgresql://..."` |
-| <img src="assets/icons/mysql.svg" width="28" /> MySQL (`mysql`) | Direct DSN | `ghostlight scan --scanner mysql --target "mysql://..."` |
+Core
+- <img src="assets/icons/fs.svg" width="20" /> Filesystem (`fs`): `ghostlight scan --scanner fs --target /path/to/dir`
+- <img src="assets/icons/git.svg" width="20" /> Git (`git`): `ghostlight scan --scanner git --target https://github.com/user/repo.git`
+
+Cloud Storage
+- <img src="assets/icons/s3.svg" width="20" /> Amazon S3 (`s3`): `ghostlight scan --scanner s3 --target my-bucket/prefix`
+- <img src="assets/icons/gcs.svg" width="20" /> Google Cloud Storage (`gcs`): `ghostlight scan --scanner gcs --target my-bucket`
+- <img src="assets/icons/azure.svg" width="20" /> Azure Blob (`azure`): `ghostlight scan --scanner azure --target "<conn>|container/prefix"`
+
+SaaS
+- <img src="assets/icons/gdrive.svg" width="20" /> Google Drive (`gdrive`): `ghostlight scan --scanner gdrive --target default`
+- <img src="assets/icons/gdrive_workspace.svg" width="20" /> GDrive Workspace (`gdrive_workspace`): `ghostlight scan --scanner gdrive_workspace --target /path/to/delegated.json`
+- <img src="assets/icons/slack.svg" width="20" /> Slack (`slack`): `ghostlight scan --scanner slack --target "xoxb-...:C12345"`
+
+Compute
+- <img src="assets/icons/vm.svg" width="20" /> VM over SSH (`vm`): `ghostlight scan --scanner vm --target "user@host:/etc,/var/log"`
+
+Databases
+- <img src="assets/icons/rds.svg" width="20" /> AWS RDS (`rds`): `ghostlight scan --scanner rds --target "rds://my-instance-id"`
+- <img src="assets/icons/postgres.svg" width="20" /> PostgreSQL (`postgres`): `ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require"`
+- <img src="assets/icons/mysql.svg" width="20" /> MySQL (`mysql`): `ghostlight scan --scanner mysql --target "mysql://user:pass@host:3306/db"`
 
 Tips
-----
-- Add `--list-tables` to print discovered tables (DB scans).
-- Add `--show-sql` to log executed SQL.
+- Use `--list-tables` (DB scans) to print discovered tables.
+- Use `--show-sql` to log executed SQL.
 - Increase `--sample-bytes` for deeper content sampling.
 
 ### AWS Comprehensive Scanning
