@@ -21,7 +21,7 @@ Quick Commands
 | <img src="assets/icons/postgres.svg" width="28" /> | PostgreSQL | `ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require"` |
 | <img src="assets/icons/mysql.svg" width="28" /> | MySQL | `ghostlight scan --scanner mysql --target "mysql://user:pass@host:3306/db"` |
 | <img src="assets/icons/jira.svg" width="28" /> | Jira | `ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"` |
-
+| <img src="assets/icons/confluence.svg" width="28" /> | Confluence | `ghostlight scan --scanner confluence --target "confluence://https://your-domain.atlassian.net/wiki:EMAIL:API_TOKEN:SPACEKEY"` |
 ## Features
 
 ### Sensitive Data Detection
@@ -103,6 +103,15 @@ ghostlight scan --scanner azure --target "<conn>|container/prefix"
 # Jira (issues & descriptions)
 ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"
 
+# Confluence (pages & blog posts)
+# Target: confluence://BASE_URL[:/wiki]:EMAIL:API_TOKEN:SPACEKEY[?cql=URL_ENCODED_CQL]
+# Examples:
+#   Personal space (~accountId) or normal space key; personal spaces are auto-quoted in CQL.
+ghostlight scan --scanner confluence --target "confluence://https://your-domain.atlassian.net/wiki:you@example.com:ATLTOKEN:SPACEKEY" --format json --output confluence.json
+# Optional custom CQL (env or inline):
+#   GHOSTLIGHT_CONFLUENCE_CQL='space="${SPACE}" AND type in (page,blogpost) AND lastmodified >= -30d ORDER BY lastmodified DESC'
+# Inline: confluence://...:SPACEKEY?cql=space%3D%22SPACEKEY%22%20AND%20type%3Dpage
+
 # RDS (AWS RDS instances)
 export AWS_PROFILE=myprofile  # or set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY
 export RDS_USERNAME=admin
@@ -147,6 +156,7 @@ SaaS
 - <img src="assets/icons/gdrive_workspace.svg" width="20" /> GDrive Workspace (`gdrive_workspace`): `ghostlight scan --scanner gdrive_workspace --target /path/to/delegated.json`
 - <img src="assets/icons/slack.svg" width="20" /> Slack (`slack`): `ghostlight scan --scanner slack --target "xoxb-...:C12345"`
 - <img src="assets/icons/jira.svg" width="20" /> Jira (`jira`): `ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"`
+- <img src="assets/icons/confluence.svg" width="20" /> Confluence (`confluence`): `ghostlight scan --scanner confluence --target "confluence://https://your-domain.atlassian.net/wiki:EMAIL:API_TOKEN:SPACEKEY"`
 
 Compute
 - <img src="assets/icons/vm.svg" width="20" /> VM over SSH (`vm`): `ghostlight scan --scanner vm --target "user@host:/etc,/var/log"`
@@ -162,6 +172,46 @@ Tips
 - Use `--strict` to aggressively reduce false positives (requires multiple detections or matches).
 - Tune `--min-entropy` (default 3.5) for secrets; raise to reduce noise.
 - Increase `--sample-bytes` for deeper content sampling.
+
+### Confluence Scanner
+
+The Confluence scanner searches pages (and optionally blog posts) using CQL and classifies content for PII/PHI/PCI/Secrets.
+
+Prerequisites:
+- Atlassian Cloud account email and API token:
+  - Create token: `https://id.atlassian.com/manage-profile/security/api-tokens`
+- Confluence base URL, often ends with `/wiki`.
+
+Target format:
+```
+confluence://https://your-domain.atlassian.net/wiki:EMAIL:API_TOKEN:SPACEKEY[?cql=URL_ENCODED_CQL]
+```
+
+Notes:
+- Personal spaces like `~accountId` are automatically quoted in the default CQL.
+- Default bounded CQL avoids unbounded errors: `space = "SPACEKEY" AND type=page ORDER BY lastmodified DESC`.
+- You can override CQL with `GHOSTLIGHT_CONFLUENCE_CQL` (supports `${SPACE}` macro) or inline `?cql=...`.
+- Connection test runs before scanning, and the page title is logged as it scans.
+- Pagination is cursor-aware and loop-safe.
+
+Examples:
+```bash
+export CONF_EMAIL="you@company.com"
+export CONF_TOKEN="atlassian_api_token_here"
+export CONF_SPACE="ENG"
+
+ghostlight scan --scanner confluence \
+  --target "confluence://https://your-domain.atlassian.net/wiki:${CONF_EMAIL}:${CONF_TOKEN}:${CONF_SPACE}" \
+  --format json --output confluence.json
+
+# Custom CQL via env (scans pages and blogposts updated in last 30d)
+GHOSTLIGHT_CONFLUENCE_CQL='space="${SPACE}" AND type in (page,blogpost) AND lastmodified >= -30d ORDER BY lastmodified DESC' \
+ghostlight scan --scanner confluence --target "confluence://https://your-domain.atlassian.net/wiki:${CONF_EMAIL}:${CONF_TOKEN}:${CONF_SPACE}"
+```
+
+JSON output enrichments:
+- `title`, `last_updated`
+- `num_detections`, `num_matches`, `bucket_match_counts`, `pattern_match_counts`, `top_exact_matches`
 
 ### AWS Comprehensive Scanning
 

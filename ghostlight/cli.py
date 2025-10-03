@@ -9,6 +9,7 @@ from rich.table import Table
 from . import __version__
 from .core.models import ScanConfig
 from .reporters.json_reporter import to_json as reporter_json
+from .reporters.json_reporter import serialize_finding
 from .reporters.markdown_reporter import to_markdown as reporter_md
 
 
@@ -19,6 +20,67 @@ def _print_magnifier():
     # Respect opt-out
     if os.environ.get("GHOSTLIGHT_NO_BANNER"):
         return
+    # Star pattern for the word GHOSTLIGHT (5-line block letters)
+    letters = {
+        "G": [
+            " *** ",
+            "*    ",
+            "* ** ",
+            "*  * ",
+            " *** ",
+        ],
+        "H": [
+            "*  * ",
+            "*  * ",
+            "**** ",
+            "*  * ",
+            "*  * ",
+        ],
+        "O": [
+            " *** ",
+            "*   *",
+            "*   *",
+            "*   *",
+            " *** ",
+        ],
+        "S": [
+            " ****",
+            "*    ",
+            " *** ",
+            "    *",
+            "**** ",
+        ],
+        "T": [
+            "*****",
+            "  *  ",
+            "  *  ",
+            "  *  ",
+            "  *  ",
+        ],
+        "L": [
+            "*    ",
+            "*    ",
+            "*    ",
+            "*    ",
+            "**** ",
+        ],
+        "I": [
+            "*****",
+            "  *  ",
+            "  *  ",
+            "  *  ",
+            "*****",
+        ],
+    }
+    word = "GHOSTLIGHT"
+    rows: List[str] = []
+    gap = "  "
+    for r in range(5):
+        parts: List[str] = [letters.get(ch, letters["I"])[r] for ch in word]
+        # Join with constant gap; do NOT strip trailing spaces to preserve fixed width
+        rows.append(gap.join(parts))
+    star_word = "\n".join(rows)
+
     # Creative banners (only '*' and spaces)
     banner_a = "\n".join([
         "           ******           ",
@@ -49,30 +111,51 @@ def _print_magnifier():
         "                 **        ",
         "                 **        ",
     ])
-    banner_c = "\n".join([
-        "       ***   ***           ",
-        "     ****** ******         ",
-        "    ***************        ",
-        "   ****  *****  ****   **  ",
-        "   ***    ***    ***  **   ",
-        "    ***   ***   ***  **    ",
-        "     *************  **     ",
-        "       *********   **      ",
-        "          *****   **       ",
-        "                  **       ",
-        "                   **      ",
-    ])
-    # Pick one based on current seconds
+
     try:
         import time
-        idx = int(time.time()) % 3
+        idx = int(time.time()) % 2
     except Exception:
         idx = 0
-    art = [banner_a, banner_b, banner_c][idx]
+    art = [banner_a, banner_b][idx]
+
+    # Center the magnifier art under the GHOSTLIGHT star text, and center both to terminal width
+    star_lines = star_word.split("\n")
+    art_lines = art.split("\n")
+    star_width = max((len(l) for l in star_lines), default=0)
+    art_width = max((len(l) for l in art_lines), default=0)
+    block_width = max(star_width, art_width)
+
+    def _center_lines(lines: List[str], width: int) -> List[str]:
+        centered: List[str] = []
+        for l in lines:
+            pad = max(0, (width - len(l)) // 2)
+            centered.append(" " * pad + l)
+        return centered
+
+    star_centered = _center_lines(star_lines, block_width)
+    art_centered = _center_lines(art_lines, block_width)
+
+    # Determine terminal width from Rich console or env
     try:
-        console.print(f"[cyan]{art}[/cyan]\n")
+        term_width = console.size.width or block_width
     except Exception:
-        print(art + "\n")
+        try:
+            import shutil
+            term_width = shutil.get_terminal_size(fallback=(block_width, 24)).columns
+        except Exception:
+            term_width = block_width
+
+    left_pad = max(0, (term_width - block_width) // 2)
+    star_block = "\n".join((" " * left_pad) + l for l in star_centered)
+    art_block = "\n".join((" " * left_pad) + l for l in art_centered)
+
+    try:
+        console.print(f"[bold cyan]{star_block}[/bold cyan]")
+        console.print(f"[cyan]{art_block}[/cyan]\n")
+    except Exception:
+        print(star_block)
+        print(art_block + "\n")
 
 @click.group(help="ghostlight scanning CLI")
 @click.version_option(__version__, prog_name="ghostlight")
@@ -81,7 +164,7 @@ def main():
 
 
 @main.command("scan", help="Run a scan")
-@click.option("--scanner", type=click.Choice(["fs","git","s3","gcs","gdrive","gdrive_workspace","slack","azure","vm","rds","ec2","aws","postgres","mysql","mongo","redis","firebase","couchdb","jira","text"]) , default="fs")
+@click.option("--scanner", type=click.Choice(["fs","git","s3","gcs","gdrive","gdrive_workspace","slack","azure","vm","rds","ec2","aws","postgres","mysql","mongo","redis","firebase","couchdb","jira","confluence","text"]) , default="fs")
 @click.option("--target", type=str, default=".", help="Target identifier for scanner")
 @click.option("--format", "fmt", type=click.Choice(["table","json","md"]), default="table")
 @click.option("--output", type=click.Path(dir_okay=False), default=None, help="Optional output file")
@@ -224,6 +307,10 @@ def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_fil
                 else:
                     console.print(f"[green]Filesystem path OK[/green] ({tgt})")
                 return True
+            if name == "confluence":
+                # Basic target validation only; full connection check in scanner
+                console.print("[yellow]Confluence target provided; connection will be validated during scan[/yellow]")
+                return True
             # Default: no preflight
             return True
         except Exception as e:
@@ -295,9 +382,57 @@ def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_fil
         if name == "jira":
             from .scanners.jira_scanner import JiraScanner
             return JiraScanner()
+        if name == "confluence":
+            from .scanners.confluence_scanner import ConfluenceScanner
+            return ConfluenceScanner()
         raise click.ClickException(f"Unknown scanner: {name}")
 
     impl = get_scanner(scanner)
+
+    # Stream results if writing to file in json/md
+    if output and fmt in ("json", "md"):
+        num_written = 0
+        try:
+            if fmt == "json":
+                with open(output, "w", encoding="utf-8") as fh:
+                    fh.write("[\n")
+                    first = True
+                    for f in impl.scan(target, config):
+                        obj = serialize_finding(f)
+                        line = json.dumps(obj, ensure_ascii=False, indent=2)
+                        if not first:
+                            fh.write(",\n")
+                        fh.write(line)
+                        fh.flush()
+                        first = False
+                        num_written += 1
+                    fh.write("\n]\n")
+                console.print(f"Saved {num_written} findings to {output}")
+                return
+            if fmt == "md":
+                header_lines = [
+                    "# Ghostlight Findings",
+                    "",
+                    "| ID | Source | Profile | Path | Severity | Risk | Classes | Detections |",
+                    "|---|---|---|---|---|---|---|---|",
+                ]
+                with open(output, "w", encoding="utf-8") as fh:
+                    fh.write("\n".join(header_lines) + "\n")
+                    for f in impl.scan(target, config):
+                        classes = ", ".join(f.classifications)
+                        dets = "; ".join(f"{d.bucket}:{d.pattern_name} x{len(d.matches)}" for d in f.detections)
+                        risk = f"{f.risk_level or ''} ({f.risk_score if f.risk_score is not None else ''})"
+                        row = f"| {f.id} | {f.data_source or ''} | {f.profile or ''} | {f.file_path or f.location} | {f.severity} | {risk} | {classes} | {dets} |\n"
+                        fh.write(row)
+                        fh.flush()
+                        num_written += 1
+                    if num_written == 0:
+                        fh.write("| (none) | - | - | - | - | - | - | - |\n")
+                console.print(f"Saved {num_written} findings to {output}")
+                return
+        except Exception as e:
+            console.print(f"[red]Streaming write failed, falling back to buffered output:[/red] {e}")
+
     try:
         findings = impl.scan_list(target, config)
     except Exception as e:
