@@ -2,6 +2,10 @@ click==8.1.7
 rich==13.7.1
 pyyaml==6.0.2
 requests==2.32.3
+pytesseract==0.3.10
+Pillow==10.4.0
+py7zr==0.21.0
+pdfplumber==0.11.4
 regex==2024.9.11
 python-dotenv==1.0.1
 gitpython==3.1.43
@@ -15,7 +19,7 @@ azure-storage-blob==12.24.0
 paramiko==3.5.0
 cryptography==43.0.1
 protobuf<5,>=4.21.0
-pdfminer.six==20240706
+pdfminer.six==20231228
 python-docx==1.1.2
 chardet==5.2.0
 openpyxl==3.1.5
