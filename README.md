@@ -20,6 +20,7 @@ Quick Commands
 | <img src="assets/icons/rds.svg" width="28" /> | AWS RDS | `ghostlight scan --scanner rds --target "rds://my-instance-id"` |
 | <img src="assets/icons/postgres.svg" width="28" /> | PostgreSQL | `ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require"` |
 | <img src="assets/icons/mysql.svg" width="28" /> | MySQL | `ghostlight scan --scanner mysql --target "mysql://user:pass@host:3306/db"` |
+| <img src="assets/icons/jira.svg" width="28" /> | Jira | `ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"` |
 
 ## Features
 
@@ -44,7 +45,9 @@ Quick Commands
 ### Multi-Format Support
 - Text files: `.txt`, `.md`, `.csv`, `.log`, `.json`, `.yaml`, `.xml`, `.html`
 - Code files: `.js`, `.py`, `.java`, `.cpp`, `.go`, `.rs`, `.sh`, `.sql`
-- Documents: `.pdf`, `.docx`, `.xlsx`, `.csv`
+- Documents: `.pdf` (layout-aware), `.docx`, `.xlsx`, `.csv`
+- Archives: `.zip`, `.tar/.gz/.tgz/.bz2`, `.7z` (sampled contents)
+- Images OCR: `.png`, `.jpg/.jpeg`, `.bmp`, `.tiff`, `.webp` (requires tesseract)
 - Binary detection and automatic skipping
 
 ### Cloud Configuration Checks
@@ -97,6 +100,9 @@ ghostlight scan --scanner s3 --target my-bucket/prefix --format json --output s3
 # Azure Blob (connection string|container/prefix)
 ghostlight scan --scanner azure --target "<conn>|container/prefix"
 
+# Jira (issues & descriptions)
+ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"
+
 # RDS (AWS RDS instances)
 export AWS_PROFILE=myprofile  # or set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY
 export RDS_USERNAME=admin
@@ -140,6 +146,7 @@ SaaS
 - <img src="assets/icons/gdrive.svg" width="20" /> Google Drive (`gdrive`): `ghostlight scan --scanner gdrive --target default`
 - <img src="assets/icons/gdrive_workspace.svg" width="20" /> GDrive Workspace (`gdrive_workspace`): `ghostlight scan --scanner gdrive_workspace --target /path/to/delegated.json`
 - <img src="assets/icons/slack.svg" width="20" /> Slack (`slack`): `ghostlight scan --scanner slack --target "xoxb-...:C12345"`
+- <img src="assets/icons/git.svg" width="20" /> Jira (`jira`): `ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"`
 
 Compute
 - <img src="assets/icons/vm.svg" width="20" /> VM over SSH (`vm`): `ghostlight scan --scanner vm --target "user@host:/etc,/var/log"`

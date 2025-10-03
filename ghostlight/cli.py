@@ -81,7 +81,7 @@ def main():
 
 
 @main.command("scan", help="Run a scan")
-@click.option("--scanner", type=click.Choice(["fs","git","s3","gcs","gdrive","gdrive_workspace","slack","azure","vm","rds","ec2","aws","postgres","mysql","mongo","redis","firebase","couchdb","text"]) , default="fs")
+@click.option("--scanner", type=click.Choice(["fs","git","s3","gcs","gdrive","gdrive_workspace","slack","azure","vm","rds","ec2","aws","postgres","mysql","mongo","redis","firebase","couchdb","jira","text"]) , default="fs")
 @click.option("--target", type=str, default=".", help="Target identifier for scanner")
 @click.option("--format", "fmt", type=click.Choice(["table","json","md"]), default="table")
 @click.option("--output", type=click.Path(dir_okay=False), default=None, help="Optional output file")
@@ -292,6 +292,9 @@ def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_fil
         if name == "text":
             from .scanners.text_scanner import TextScanner
             return TextScanner()
+        if name == "jira":
+            from .scanners.jira_scanner import JiraScanner
+            return JiraScanner()
         raise click.ClickException(f"Unknown scanner: {name}")
 
     impl = get_scanner(scanner)
