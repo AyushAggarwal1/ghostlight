@@ -1,7 +1,7 @@
 ghostlight
 ============
 
-Enterprise-grade Data Security Posture Management (DSPM) tool that scans cloud storage, VMs, databases, and git repositories to detect sensitive data and classify findings against GDPR, HIPAA, PCI, and secrets exposure.
+Data Security Posture Management (DSPM) tool that scans cloud storage, VMs, databases, and git repositories to detect sensitive data and classify findings against GDPR, HIPAA, PCI, and secrets exposure.
 
 ## Features
 
