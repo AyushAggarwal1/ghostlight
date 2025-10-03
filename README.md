@@ -1,7 +1,7 @@
 ghostlight
 ============
 
-Data Security Posture Management (DSPM) tool that scans cloud storage, VMs, databases, and git repositories to detect sensitive data and classify findings against GDPR, HIPAA, PCI, and secrets exposure.
+Data Security Posture Management tool that scans cloud storage, VMs, databases, and git repositories to detect sensitive data and classify findings against GDPR, HIPAA, PCI, and secrets exposure.
 
 ## Features
 
@@ -41,7 +41,7 @@ Quickstart
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python -m dspm --help
+python -m ghostlight --help
 python -m pip install -e .
 ghostlight --help
 ```

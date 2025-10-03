@@ -1,7 +1,7 @@
 import json
 from typing import List
 
-from dspm.core.models import Finding
+from ghostlight.core.models import Finding
 
 
 def to_json(findings: List[Finding]) -> str:

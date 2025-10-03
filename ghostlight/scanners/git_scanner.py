@@ -8,10 +8,10 @@ import re
 
 from git import Repo, InvalidGitRepositoryError, NoSuchPathError
 
-from dspm.classify.engine import classify_text, classify_text_detailed, score_severity
-from dspm.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
-from dspm.core.models import Evidence, Finding, ScanConfig, Detection
-from dspm.utils.logging import get_logger
+from ghostlight.classify.engine import classify_text, classify_text_detailed, score_severity
+from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
+from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.utils.logging import get_logger
 from .git_auth import build_authenticated_url, get_git_credentials, get_auth_help_message
 from .base import Scanner
 
@@ -25,7 +25,7 @@ class GitScanner(Scanner):
         try:
             if is_remote:
                 logger.info(f"Cloning remote repository: {target}")
-                tmp_dir = tempfile.mkdtemp(prefix="dspm-git-")
+                tmp_dir = tempfile.mkdtemp(prefix="ghostlight-git-")
                 
                 # Get credentials from environment
                 creds = get_git_credentials()

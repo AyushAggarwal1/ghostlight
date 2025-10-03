@@ -11,12 +11,12 @@ except Exception:  # pragma: no cover
     HttpError = Exception
     service_account = None
 
-from dspm.classify.engine import classify_text_detailed, score_severity
-from dspm.classify.filters import apply_context_filters
-from dspm.core.models import Evidence, Finding, ScanConfig, Detection
-from dspm.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
-from dspm.utils.text_extract import extract_text_from_file
-from dspm.utils.logging import get_logger
+from ghostlight.classify.engine import classify_text_detailed, score_severity
+from ghostlight.classify.filters import apply_context_filters
+from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
+from ghostlight.utils.text_extract import extract_text_from_file
+from ghostlight.utils.logging import get_logger
 from .base import Scanner
 
 logger = get_logger(__name__)

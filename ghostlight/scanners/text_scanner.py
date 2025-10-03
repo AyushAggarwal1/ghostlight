@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from dspm.classify.engine import classify_text_detailed, score_severity
-from dspm.core.models import Evidence, Finding, ScanConfig, Detection
-from dspm.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
-from dspm.classify.filters import apply_context_filters
+from ghostlight.classify.engine import classify_text_detailed, score_severity
+from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
+from ghostlight.classify.filters import apply_context_filters
 from .base import Scanner
 
 

@@ -39,6 +39,9 @@ class ScanConfig:
     exclude: List[str] = field(default_factory=list)
     max_file_mb: int = 20
     sample_bytes: int = 2048
+    # DB scanning verbosity
+    list_tables: bool = False
+    show_sql: bool = False
 
 
 @dataclass

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
-from dspm.core.models import Detection
+from ghostlight.core.models import Detection
 
 
 SENSITIVITY_WEIGHTS: Dict[str, int] = {

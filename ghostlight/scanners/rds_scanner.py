@@ -1,5 +1,5 @@
 """
-AWS RDS Scanner for DSPM
+AWS RDS Scanner for Ghostlight
 Supports PostgreSQL, MySQL, MariaDB RDS instances
 
 Target format: rds://instance-id/engine:database:table1,table2
@@ -27,13 +27,13 @@ try:
 except Exception:  # pragma: no cover
     boto3 = None
 
-from dspm.classify.engine import classify_text, classify_text_detailed, score_severity
-from dspm.classify.filters import apply_context_filters, is_system_table
-from dspm.classify.ai_filter import ai_classify_detection, get_ai_summary, install_ollama_instructions
-from dspm.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
-from dspm.core.models import Evidence, Finding, ScanConfig, Detection
-from dspm.utils.logging import get_logger
-from dspm.utils.retry import retry_on_exception
+from ghostlight.classify.engine import classify_text, classify_text_detailed, score_severity
+from ghostlight.classify.filters import apply_context_filters, is_system_table
+from ghostlight.classify.ai_filter import ai_classify_detection, get_ai_summary, install_ollama_instructions
+from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
+from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.utils.logging import get_logger
+from ghostlight.utils.retry import retry_on_exception
 from .base import Scanner
 
 logger = get_logger(__name__)
@@ -63,41 +63,46 @@ class RDSScanner(Scanner):
             logger.error("boto3 not available. Install: pip install boto3")
             return []
         
-        # Parse target: rds://instance-id:engine:database:tables
+        # Parse target: rds://<identifier_or_endpoint>/<engine>:<database>:<table1,table2>
+        # Relaxed format: engine/database/tables are optional; we auto-discover when omitted.
         try:
             parsed = urlparse(target)
-            instance_id = parsed.netloc
-            path_parts = parsed.path.lstrip("/").split(":")
+            # Prefer hostname (excludes optional trailing colon/port). Fallback to netloc trimmed.
+            identifier_or_endpoint = parsed.hostname or parsed.netloc.split(":")[0].rstrip(":")
+            path_body = parsed.path.lstrip("/")
+            path_parts = path_body.split(":") if path_body else []
             
-            if len(path_parts) < 2:
-                logger.error(f"Invalid RDS target format. Expected: rds://instance:engine:database:tables")
-                logger.error(f"Got: {target}")
-                return []
-            
-            engine = path_parts[0]  # postgres, mysql, mariadb
-            database = path_parts[1] if len(path_parts) > 1 else ""
-            tables = []
-            if len(path_parts) > 2 and path_parts[2]:
+            engine = path_parts[0] if len(path_parts) >= 1 and path_parts[0] else ""
+            database = path_parts[1] if len(path_parts) >= 2 and path_parts[1] else ""
+            tables: list[str] = []
+            if len(path_parts) >= 3 and path_parts[2]:
                 tables = [t.strip() for t in path_parts[2].split(",") if t.strip()]
-            
-            logger.info(f"⏳ Scanning RDS instance: {instance_id} ({engine}), database: {database}")
-            if tables:
-                logger.info(f"📋 Target tables: {', '.join(tables)}")
-            else:
-                logger.info(f"🔍 Auto-discovering tables (no specific tables provided)")
         except Exception as e:
             logger.error(f"Failed to parse RDS target: {e}")
             return []
         
         # Get RDS instance details
-        endpoint, port, instance_info = self._get_rds_endpoint_with_details(instance_id)
+        # Resolve instance by identifier or endpoint
+        endpoint, port, instance_info = self._get_rds_endpoint_with_details(identifier_or_endpoint)
         if not endpoint:
-            logger.error(f"Could not find RDS instance: {instance_id}")
+            logger.error(f"Could not find RDS instance for: {identifier_or_endpoint}")
             return []
         
         # Store instance info for findings metadata
         db_engine_version = instance_info.get("engine_version", "unknown")
-        db_engine_type = instance_info.get("engine", engine)
+        db_engine_type = instance_info.get("engine", engine or "unknown")
+        instance_id = instance_info.get("instance_id", identifier_or_endpoint)
+        
+        # Fill missing engine/database from instance details
+        if not engine:
+            engine = db_engine_type
+        if not database:
+            database = (
+                instance_info.get("db_name")
+                or os.environ.get("RDS_DATABASE")
+                or os.environ.get("DB_NAME")
+                or ("postgres" if (engine or "").lower().startswith("postgres") else "mysql")
+            )
         
         logger.info(f"Found RDS endpoint: {endpoint}:{port}")
         
@@ -124,35 +129,49 @@ class RDSScanner(Scanner):
         return endpoint, port
     
     @retry_on_exception(max_retries=2)
-    def _get_rds_endpoint_with_details(self, instance_id: str) -> tuple[Optional[str], Optional[int], Dict[str, str]]:
-        """Get RDS instance endpoint and details from AWS API"""
+    def _get_rds_endpoint_with_details(self, identifier_or_endpoint: str) -> tuple[Optional[str], Optional[int], Dict[str, str]]:
+        """Get RDS instance endpoint and details from AWS API by identifier or endpoint hostname"""
         try:
             rds = boto3.client("rds")
-            response = rds.describe_db_instances(DBInstanceIdentifier=instance_id)
-            
-            if not response["DBInstances"]:
+            instance = None
+            # First try direct describe by identifier
+            try:
+                resp = rds.describe_db_instances(DBInstanceIdentifier=identifier_or_endpoint)
+                if resp.get("DBInstances"):
+                    instance = resp["DBInstances"][0]
+            except Exception:
+                instance = None
+            # Fallback: search by endpoint address
+            if instance is None:
+                paginator = rds.get_paginator("describe_db_instances")
+                for page in paginator.paginate():
+                    for inst in page.get("DBInstances", []):
+                        ep = (inst.get("Endpoint") or {}).get("Address")
+                        if ep and ep == identifier_or_endpoint:
+                            instance = inst
+                            break
+                    if instance is not None:
+                        break
+            if instance is None:
                 return None, None, {}
-            
-            instance = response["DBInstances"][0]
             endpoint = instance["Endpoint"]["Address"]
             port = instance["Endpoint"]["Port"]
-            
             # Extract instance details
             instance_info = {
+                "instance_id": instance.get("DBInstanceIdentifier", identifier_or_endpoint),
                 "engine": instance.get("Engine", "unknown"),
                 "engine_version": instance.get("EngineVersion", "unknown"),
+                "db_name": instance.get("DBName"),
                 "storage_gb": str(instance.get("AllocatedStorage", "0")),
                 "encrypted": str(instance.get("StorageEncrypted", False)),
                 "multi_az": str(instance.get("MultiAZ", False)),
                 "publicly_accessible": str(instance.get("PubliclyAccessible", False)),
                 "instance_class": instance.get("DBInstanceClass", "unknown"),
             }
-            
             # Log instance details
-            logger.info(f"RDS Instance: {instance_info['engine']} {instance_info['engine_version']}")
+            logger.info(f"RDS Instance: {instance_info['instance_id']} ({instance_info['engine']} {instance_info['engine_version']})")
             logger.info(f"Storage: {instance_info['storage_gb']}GB, Encrypted: {instance_info['encrypted']}")
             logger.info(f"Multi-AZ: {instance_info['multi_az']}, Public: {instance_info['publicly_accessible']}")
-            
             return endpoint, port, instance_info
         except Exception as e:
             logger.error(f"Failed to describe RDS instance: {e}")
@@ -195,15 +214,17 @@ class RDSScanner(Scanner):
         # Auto-discover tables if not specified
         if not tables:
             try:
-                cur.execute("""
-                    SELECT table_name 
-                    FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
-                    AND table_type = 'BASE TABLE'
-                    LIMIT 50
-                """)
+                sql = (
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_schema = 'public' AND table_type = 'BASE TABLE' LIMIT 50"
+                )
+                if config.show_sql:
+                    logger.info(f"SQL: {sql}")
+                cur.execute(sql)
                 tables = [row[0] for row in cur.fetchall()]
                 logger.info(f"Auto-discovered {len(tables)} tables")
+                if config.list_tables and tables:
+                    logger.info("Tables: " + ", ".join(tables))
             except Exception as e:
                 logger.warning(f"Failed to auto-discover tables: {e}")
                 tables = []
@@ -212,19 +233,26 @@ class RDSScanner(Scanner):
         for table in tables:
             try:
                 # Get row count
-                cur.execute(f'SELECT COUNT(*) FROM "{table}"')
+                sql_count = f'SELECT COUNT(*) FROM "{table}"'
+                if config.show_sql:
+                    logger.info(f"SQL: {sql_count}")
+                cur.execute(sql_count)
                 row_count = cur.fetchone()[0]
                 
                 # Sample rows
-                cur.execute(f'SELECT * FROM "{table}" LIMIT 100')
+                sql_sample = f'SELECT * FROM "{table}" LIMIT 100'
+                if config.show_sql:
+                    logger.info(f"SQL: {sql_sample}")
+                cur.execute(sql_sample)
                 rows = cur.fetchall()
                 
                 # Get column names
-                cur.execute(f"""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name = %s
-                """, (table,))
+                sql_cols = (
+                    "SELECT column_name FROM information_schema.columns WHERE table_name = %s"
+                )
+                if config.show_sql:
+                    logger.info(f"SQL: {sql_cols} [params: {table}]")
+                cur.execute(sql_cols, (table,))
                 columns = [row[0] for row in cur.fetchall()]
                 
                 scanned_tables += 1
@@ -248,7 +276,7 @@ class RDSScanner(Scanner):
                 continue
             
             # Apply AI-powered filtering (if enabled and available)
-            ai_mode = os.getenv("DSPM_AI_FILTER", "auto")  # "auto", "ollama", "openai", "anthropic", "off"
+            ai_mode = os.getenv("GHOSTLIGHT_AI_FILTER", "auto")  # "auto", "ollama", "openai", "anthropic", "off"
             
             if ai_mode != "off" and detailed:
                 # For each detection, ask AI to verify
@@ -304,7 +332,7 @@ class RDSScanner(Scanner):
             # RDS exposure metadata
             metadata = {
                 "instance_id": instance_id,
-                "engine": "postgresql",
+                "engine": db_engine,
                 "database": database,
                 "table": table,
                 "row_count": str(row_count),
@@ -376,9 +404,14 @@ class RDSScanner(Scanner):
         # Auto-discover tables if not specified
         if not tables:
             try:
-                cur.execute("SHOW TABLES")
+                sql = "SHOW TABLES"
+                if config.show_sql:
+                    logger.info(f"SQL: {sql}")
+                cur.execute(sql)
                 tables = [row[0] for row in cur.fetchall()]
                 logger.info(f"Auto-discovered {len(tables)} tables")
+                if config.list_tables and tables:
+                    logger.info("Tables: " + ", ".join([str(t) for t in tables]))
             except Exception as e:
                 logger.warning(f"Failed to auto-discover tables: {e}")
                 tables = []
@@ -387,15 +420,24 @@ class RDSScanner(Scanner):
         for table in tables:
             try:
                 # Get row count
-                cur.execute(f"SELECT COUNT(*) FROM `{table}`")
+                sql_count = f"SELECT COUNT(*) FROM `{table}`"
+                if config.show_sql:
+                    logger.info(f"SQL: {sql_count}")
+                cur.execute(sql_count)
                 row_count = cur.fetchone()[0]
                 
                 # Sample rows
-                cur.execute(f"SELECT * FROM `{table}` LIMIT 100")
+                sql_sample = f"SELECT * FROM `{table}` LIMIT 100"
+                if config.show_sql:
+                    logger.info(f"SQL: {sql_sample}")
+                cur.execute(sql_sample)
                 rows = cur.fetchall()
                 
                 # Get column info
-                cur.execute(f"DESCRIBE `{table}`")
+                sql_desc = f"DESCRIBE `{table}`"
+                if config.show_sql:
+                    logger.info(f"SQL: {sql_desc}")
+                cur.execute(sql_desc)
                 columns = [row[0] for row in cur.fetchall()]
                 
                 scanned_tables += 1
@@ -418,7 +460,7 @@ class RDSScanner(Scanner):
                 continue
             
             # Apply AI-powered filtering (if enabled and available)
-            ai_mode = os.getenv("DSPM_AI_FILTER", "auto")  # "auto", "ollama", "openai", "anthropic", "off"
+            ai_mode = os.getenv("GHOSTLIGHT_AI_FILTER", "auto")  # "auto", "ollama", "openai", "anthropic", "off"
             
             if ai_mode != "off" and detailed:
                 # For each detection, ask AI to verify

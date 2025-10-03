@@ -12,12 +12,12 @@ except Exception:  # pragma: no cover
     ClientError = Exception  # type: ignore
     NoCredentialsError = Exception  # type: ignore
 
-from dspm.classify.engine import classify_text, classify_text_detailed, score_severity
-from dspm.classify.filters import apply_context_filters
-from dspm.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
-from dspm.core.models import Evidence, Finding, ScanConfig, Detection
-from dspm.utils.logging import get_logger
-from dspm.utils.retry import retry_on_exception
+from ghostlight.classify.engine import classify_text, classify_text_detailed, score_severity
+from ghostlight.classify.filters import apply_context_filters
+from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
+from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.utils.logging import get_logger
+from ghostlight.utils.retry import retry_on_exception
 from .s3_config import check_bucket_public_access
 from .base import Scanner
 

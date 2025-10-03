@@ -28,8 +28,10 @@ def main():
 @click.option("--output", type=click.Path(dir_okay=False), default=None, help="Optional output file")
 @click.option("--max-file-mb", type=int, default=20)
 @click.option("--sample-bytes", type=int, default=2048)
-def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_file_mb: int, sample_bytes: int):
-    config = ScanConfig(max_file_mb=max_file_mb, sample_bytes=sample_bytes)
+@click.option("--list-tables", is_flag=True, default=False, help="List tables during DB scans")
+@click.option("--show-sql", is_flag=True, default=False, help="Show SQL queries executed")
+def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_file_mb: int, sample_bytes: int, list_tables: bool, show_sql: bool):
+    config = ScanConfig(max_file_mb=max_file_mb, sample_bytes=sample_bytes, list_tables=list_tables, show_sql=show_sql)
     
     # Preflight connectivity checks per scanner
     def preflight_check(name: str, tgt: str) -> bool:
@@ -90,8 +92,8 @@ def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_fil
                 return True
             if name == "postgres":
                 import psycopg2  # type: ignore
-                dsn = tgt.split(":", 1)[0]
-                conn = psycopg2.connect(dsn)
+                # Accept full URL or DSN string without splitting
+                conn = psycopg2.connect(tgt, connect_timeout=5)
                 conn.close()
                 console.print("[green]PostgreSQL connection OK[/green]")
                 return True
@@ -103,8 +105,8 @@ def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_fil
                 return True
             if name == "mongo":
                 import pymongo  # type: ignore
-                dsn = tgt.split(":", 1)[0]
-                client = pymongo.MongoClient(dsn, serverSelectionTimeoutMS=3000)
+                # Accept full MongoDB connection string
+                client = pymongo.MongoClient(tgt, serverSelectionTimeoutMS=3000)
                 client.admin.command("ping")
                 client.close()
                 console.print("[green]MongoDB connection OK[/green]")
@@ -367,3 +369,140 @@ def test_cmd(scanner: str, target: str):
             console.print(f"[red]GCS connectivity failed:[/red] {e}")
         return
 
+
+@main.command("list-tables", help="List tables for a database source (postgres/mysql DSN or RDS)")
+@click.option("--source", type=click.Choice(["postgres", "mysql", "rds"]), required=True)
+@click.option("--target", type=str, required=True, help="DSN URL for postgres/mysql, or rds://identifier[/engine:db]")
+def list_tables_cmd(source: str, target: str):
+    try:
+        if source == "postgres":
+            try:
+                import psycopg2  # type: ignore
+            except Exception:
+                raise click.ClickException("psycopg2 not installed. Run: pip install psycopg2-binary")
+            conn = psycopg2.connect(target, connect_timeout=5)
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT table_schema, table_name
+                FROM information_schema.tables
+                WHERE table_type = 'BASE TABLE'
+                ORDER BY table_schema, table_name
+                """
+            )
+            rows = cur.fetchall()
+            cur.close(); conn.close()
+            table = Table(title="PostgreSQL Tables", show_lines=True)
+            table.add_column("Schema", style="cyan")
+            table.add_column("Table", style="green")
+            for schema, name in rows:
+                table.add_row(schema, name)
+            console.print(table)
+            console.print(f"\n[bold]Total tables:[/bold] {len(rows)}")
+            return
+        if source == "mysql":
+            try:
+                import pymysql  # type: ignore
+            except Exception:
+                raise click.ClickException("pymysql not installed. Run: pip install pymysql")
+            # Expect standard mysql DSN like mysql://user:pass@host:port/db
+            # pymysql does not parse URLs natively; use SQL to read current database schemas
+            conn = pymysql.connect(host="", user="", password="")  # Placeholder to satisfy types
+            # Fallback: let client parse URL via SQLAlchemy-like approach is out of scope; use PyMySQL URL parsing later
+            raise click.ClickException("MySQL URL parsing not implemented yet. Use RDS or Postgres for now.")
+        if source == "rds":
+            try:
+                import boto3  # type: ignore
+            except Exception:
+                raise click.ClickException("boto3 not installed. Run: pip install boto3")
+            # Reuse relaxed RDS parsing similar to RDS scanner
+            from urllib.parse import urlparse
+            import os
+            parsed = urlparse(target)
+            identifier_or_endpoint = parsed.hostname or parsed.netloc.split(":")[0].rstrip(":")
+            path_body = parsed.path.lstrip("/")
+            engine = path_body.split(":")[0] if path_body else ""
+            # Resolve RDS instance
+            rds = boto3.client("rds")
+            instance = None
+            try:
+                resp = rds.describe_db_instances(DBInstanceIdentifier=identifier_or_endpoint)
+                if resp.get("DBInstances"):
+                    instance = resp["DBInstances"][0]
+            except Exception:
+                instance = None
+            if instance is None:
+                paginator = rds.get_paginator("describe_db_instances")
+                for page in paginator.paginate():
+                    for inst in page.get("DBInstances", []):
+                        ep = (inst.get("Endpoint") or {}).get("Address")
+                        if ep and ep == identifier_or_endpoint:
+                            instance = inst
+                            break
+                    if instance is not None:
+                        break
+            if instance is None:
+                raise click.ClickException(f"RDS instance not found for {identifier_or_endpoint}")
+            endpoint = instance["Endpoint"]["Address"]
+            port = instance["Endpoint"]["Port"]
+            db_engine = instance.get("Engine", engine or "unknown")
+            db_name = instance.get("DBName") or os.environ.get("RDS_DATABASE") or os.environ.get("DB_NAME") or ("postgres" if db_engine.startswith("postgres") else "mysql")
+            username = os.environ.get("RDS_USERNAME") or os.environ.get("DB_USERNAME")
+            password = os.environ.get("RDS_PASSWORD") or os.environ.get("DB_PASSWORD")
+            if not username or not password:
+                raise click.ClickException("Set RDS_USERNAME and RDS_PASSWORD (or DB_USERNAME/DB_PASSWORD)")
+            if db_engine.startswith("postgres"):
+                try:
+                    import psycopg2  # type: ignore
+                except Exception:
+                    raise click.ClickException("psycopg2 not installed. Run: pip install psycopg2-binary")
+                conn = psycopg2.connect(host=endpoint, port=port, database=db_name, user=username, password=password, connect_timeout=5)
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    SELECT table_schema, table_name
+                    FROM information_schema.tables
+                    WHERE table_type = 'BASE TABLE'
+                    ORDER BY table_schema, table_name
+                    """
+                )
+                rows = cur.fetchall()
+                cur.close(); conn.close()
+                table = Table(title=f"RDS PostgreSQL Tables ({identifier_or_endpoint})", show_lines=True)
+                table.add_column("Schema", style="cyan")
+                table.add_column("Table", style="green")
+                for schema, name in rows:
+                    table.add_row(schema, name)
+                console.print(table)
+                console.print(f"\n[bold]Total tables:[/bold] {len(rows)}")
+                return
+            if db_engine in ("mysql", "mariadb"):
+                try:
+                    import pymysql  # type: ignore
+                except Exception:
+                    raise click.ClickException("pymysql not installed. Run: pip install pymysql")
+                conn = pymysql.connect(host=endpoint, port=port, user=username, password=password, database=db_name, connect_timeout=5)
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    SELECT table_schema, table_name
+                    FROM information_schema.tables
+                    WHERE table_type = 'BASE TABLE' AND table_schema = DATABASE()
+                    ORDER BY table_schema, table_name
+                    """
+                )
+                rows = cur.fetchall()
+                cur.close(); conn.close()
+                table = Table(title=f"RDS MySQL Tables ({identifier_or_endpoint})", show_lines=True)
+                table.add_column("Schema", style="cyan")
+                table.add_column("Table", style="green")
+                for schema, name in rows:
+                    table.add_row(str(schema), str(name))
+                console.print(table)
+                console.print(f"\n[bold]Total tables:[/bold] {len(rows)}")
+                return
+            raise click.ClickException(f"Unsupported RDS engine: {db_engine}")
+    except click.ClickException:
+        raise
+    except Exception as e:
+        raise click.ClickException(str(e))

@@ -1,11 +1,11 @@
 from typing import List
 
-from dspm.core.models import Finding
+from ghostlight.core.models import Finding
 
 
 def to_markdown(findings: List[Finding]) -> str:
     lines = [
-        "# DSPM Findings",
+        "# Ghostlight Findings",
         "",
         "| ID | Source | Profile | Path | Severity | Risk | Classes | Detections |",
         "|---|---|---|---|---|---|---|---|",
