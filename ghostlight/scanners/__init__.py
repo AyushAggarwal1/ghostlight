@@ -14,6 +14,7 @@ from .gdrive_workspace_scanner import GDriveWorkspaceScanner
 from .text_scanner import TextScanner
 from .couchdb_scanner import CouchDBScanner
 from .jira_scanner import JiraScanner
+from .confluence_scanner import ConfluenceScanner
 
 __all__ = [
     "GitScanner",
@@ -36,6 +37,7 @@ __all__ = [
     "TextScanner",
     "CouchDBScanner",
     "JiraScanner",
+    "ConfluenceScanner",
 ]
 
 
