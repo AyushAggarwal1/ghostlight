@@ -8,18 +8,18 @@ Quick Commands
 
 | Icons | Tool | Command |
 |---|---|---|
-| <img src="assets/icons/fs.svg" width="18" /> | Filesystem | `ghostlight scan --scanner fs --target /path/to/dir` |
-| <img src="assets/icons/git.svg" width="18" /> | Git | `ghostlight scan --scanner git --target https://github.com/user/repo.git` |
-| <img src="assets/icons/s3.svg" width="18" /> | Amazon S3 | `ghostlight scan --scanner s3 --target my-bucket/prefix` |
-| <img src="assets/icons/gcs.svg" width="18" /> | Google Cloud Storage | `ghostlight scan --scanner gcs --target my-bucket` |
-| <img src="assets/icons/azure.svg" width="18" /> | Azure Blob | `ghostlight scan --scanner azure --target "<conn>|container/prefix"` |
-| <img src="assets/icons/gdrive.svg" width="18" /> | Google Drive | `ghostlight scan --scanner gdrive --target default` |
-| <img src="assets/icons/gdrive_workspace.svg" width="18" /> | GDrive Workspace | `ghostlight scan --scanner gdrive_workspace --target /path/to/delegated.json` |
-| <img src="assets/icons/slack.svg" width="18" /> | Slack | `ghostlight scan --scanner slack --target "xoxb-...:C12345"` |
-| <img src="assets/icons/vm.svg" width="18" /> | VM over SSH | `ghostlight scan --scanner vm --target "user@host:/etc,/var/log"` |
-| <img src="assets/icons/rds.svg" width="18" /> | AWS RDS | `ghostlight scan --scanner rds --target "rds://my-instance-id"` |
-| <img src="assets/icons/postgres.svg" width="18" /> | PostgreSQL | `ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require"` |
-| <img src="assets/icons/mysql.svg" width="18" /> | MySQL | `ghostlight scan --scanner mysql --target "mysql://user:pass@host:3306/db"` |
+| <img src="assets/icons/fs.svg" width="28" /> | Filesystem | `ghostlight scan --scanner fs --target /path/to/dir` |
+| <img src="assets/icons/git.svg" width="28" /> | Git | `ghostlight scan --scanner git --target https://github.com/user/repo.git` |
+| <img src="assets/icons/s3.svg" width="28" /> | Amazon S3 | `ghostlight scan --scanner s3 --target my-bucket/prefix` |
+| <img src="assets/icons/gcs.svg" width="28" /> | Google Cloud Storage | `ghostlight scan --scanner gcs --target my-bucket` |
+| <img src="assets/icons/azure.svg" width="28" /> | Azure Blob | `ghostlight scan --scanner azure --target "conn|container/prefix"` |
+| <img src="assets/icons/gdrive.svg" width="28" /> | Google Drive | `ghostlight scan --scanner gdrive --target default` |
+| <img src="assets/icons/gdrive_workspace.svg" width="28" /> | GDrive Workspace | `ghostlight scan --scanner gdrive_workspace --target /path/to/delegated.json` |
+| <img src="assets/icons/slack.svg" width="28" /> | Slack | `ghostlight scan --scanner slack --target "xoxb-...:C12345"` |
+| <img src="assets/icons/vm.svg" width="28" /> | VM over SSH | `ghostlight scan --scanner vm --target "user@host:/etc,/var/log"` |
+| <img src="assets/icons/rds.svg" width="28" /> | AWS RDS | `ghostlight scan --scanner rds --target "rds://my-instance-id"` |
+| <img src="assets/icons/postgres.svg" width="28" /> | PostgreSQL | `ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require"` |
+| <img src="assets/icons/mysql.svg" width="28" /> | MySQL | `ghostlight scan --scanner mysql --target "mysql://user:pass@host:3306/db"` |
 
 ## Features
 
