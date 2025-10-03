@@ -146,7 +146,7 @@ SaaS
 - <img src="assets/icons/gdrive.svg" width="20" /> Google Drive (`gdrive`): `ghostlight scan --scanner gdrive --target default`
 - <img src="assets/icons/gdrive_workspace.svg" width="20" /> GDrive Workspace (`gdrive_workspace`): `ghostlight scan --scanner gdrive_workspace --target /path/to/delegated.json`
 - <img src="assets/icons/slack.svg" width="20" /> Slack (`slack`): `ghostlight scan --scanner slack --target "xoxb-...:C12345"`
-- <img src="assets/icons/git.svg" width="20" /> Jira (`jira`): `ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"`
+- <img src="assets/icons/jira.svg" width="20" /> Jira (`jira`): `ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"`
 
 Compute
 - <img src="assets/icons/vm.svg" width="20" /> VM over SSH (`vm`): `ghostlight scan --scanner vm --target "user@host:/etc,/var/log"`
