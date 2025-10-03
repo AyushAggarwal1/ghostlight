@@ -83,10 +83,13 @@ ghostlight scan --scanner azure --target "<conn>|container/prefix"
 export AWS_PROFILE=myprofile  # or set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY
 export RDS_USERNAME=admin
 export RDS_PASSWORD=yourpassword
-ghostlight scan --scanner rds --target "rds://mydb-instance/postgres:mydb:users,orders"
+ghostlight scan --scanner rds --target "rds://mydb-instance"               # auto-detect engine/db, auto tables
+ghostlight scan --scanner rds --target "rds://mydb-instance/postgres:mydb:" # explicit engine/db, auto tables
+ghostlight scan --scanner rds --target "rds://mydb-instance/mysql:appdb:users,orders" --list-tables --show-sql
 
-# Postgres (direct connection)
-ghostlight scan --scanner postgres --target "postgres://user:pass@host:5432/db:public.users"
+# Postgres (direct connection via DSN URL)
+ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require"
+ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require" --list-tables --show-sql
 
 # AWS Comprehensive (auto-discovers ALL AWS resources: RDS + S3 + EC2)
 export AWS_ACCESS_KEY_ID=AKIAXXXXXXXX
@@ -567,9 +570,10 @@ ghostlight scan --scanner postgres --target "postgres://user:pass@db:5432/app:pu
 
 MySQL (mysql)
 -------------
-Target format: `mysql://user:pass@host:port/db:table1,table2` (experimental direct DSN support)
+Target format: `mysql://user:pass@host:port/db` (now supports direct DSN)
 ```bash
-ghostlight scan --scanner mysql --target "mysql://user:pass@db:3306/app:users,orders"
+ghostlight scan --scanner mysql --target "mysql://user:pass@db:3306/app"
+ghostlight scan --scanner mysql --target "mysql://user:pass@db:3306/app" --list-tables --show-sql
 ```
 
 MongoDB (mongo)
