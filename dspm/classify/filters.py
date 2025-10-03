@@ -3,6 +3,8 @@ Context-aware filters to reduce false positives
 """
 import re
 from typing import List, Tuple
+import base64
+import json
 
 
 # MySQL system tables that commonly contain metadata, not real PII
@@ -224,6 +226,107 @@ def filter_npi_matches(matches: List[str], context: str) -> List[str]:
     return filtered
 
 
+def luhn_valid(number: str) -> bool:
+    """Luhn checksum for credit cards."""
+    digits = [int(d) for d in number if d.isdigit()]
+    if len(digits) < 13:
+        return False
+    checksum = 0
+    parity = (len(digits) - 2) % 2
+    for i, d in enumerate(digits):
+        if i % 2 == parity:
+            d = d * 2
+            if d > 9:
+                d -= 9
+        checksum += d
+    return checksum % 10 == 0
+
+
+def filter_credit_card_matches(matches: List[str], context: str) -> List[str]:
+    """Keep only Luhn-valid card numbers; drop long digit blobs and code samples."""
+    filtered: List[str] = []
+    for m in matches:
+        digits = re.sub(r"[^0-9]", "", m)
+        # Typical PAN length 13-19
+        if not (13 <= len(digits) <= 19):
+            continue
+        if luhn_valid(digits):
+            filtered.append(m)
+    return filtered
+
+
+def iban_valid(iban: str) -> bool:
+    """Validate IBAN using mod-97 (ISO 13616)."""
+    s = re.sub(r"\s+", "", iban).upper()
+    if len(s) < 15 or len(s) > 34:
+        return False
+    s = s[4:] + s[:4]
+    converted = "".join(str(ord(c) - 55) if c.isalpha() else c for c in s)
+    try:
+        return int(converted) % 97 == 1
+    except Exception:
+        return False
+
+
+def filter_iban_matches(matches: List[str]) -> List[str]:
+    return [m for m in matches if iban_valid(m)]
+
+
+def is_valid_jwt(token: str) -> bool:
+    """Basic JWT validation: three segments, header JSON decodes."""
+    parts = token.split(".")
+    if len(parts) != 3:
+        return False
+    try:
+        header_b64 = parts[0] + "=="  # pad
+        header = json.loads(base64.urlsafe_b64decode(header_b64.encode("utf-8")).decode("utf-8"))
+        return isinstance(header, dict) and "alg" in header
+    except Exception:
+        return False
+
+
+def shannon_entropy(s: str) -> float:
+    import math
+    if not s:
+        return 0.0
+    probs = [float(s.count(c)) / len(s) for c in set(s)]
+    return -sum(p * math.log(p, 2) for p in probs)
+
+
+def filter_bearer_tokens(matches: List[str]) -> List[str]:
+    """Drop low-entropy strings that look like placeholders."""
+    filtered: List[str] = []
+    for m in matches:
+        if shannon_entropy(m) >= 3.5:
+            filtered.append(m)
+    return filtered
+
+
+def clean_slack_mailto(email_like: str) -> str:
+    """Slack formats links as <mailto:addr|label>; extract addr."""
+    if email_like.startswith("<mailto:") and "|" in email_like and email_like.endswith(">"):
+        try:
+            body = email_like[1:-1]  # strip <>
+            addr = body.split(":", 1)[1].split("|", 1)[0]
+            return addr
+        except Exception:
+            return email_like
+    return email_like
+
+
+def filter_email_matches(matches: List[str]) -> List[str]:
+    """Normalize Slack mailto and drop obvious placeholders/domains."""
+    cleaned: List[str] = []
+    for m in matches:
+        addr = clean_slack_mailto(m)
+        # Drop well-known placeholder domains
+        domain = addr.split("@")[-1].lower() if "@" in addr else ""
+        if domain in {"example.com", "test.com", "example.org", "example.net"}:
+            continue
+        cleaned.append(addr)
+    return cleaned
+
+
 def validate_aws_secret_key(match: str, context: str) -> bool:
     """
     Validate if an AWS secret key match is likely real
@@ -293,6 +396,16 @@ def apply_context_filters(
             filtered_matches = filter_ssn_matches(matches, text)
         elif pattern_name == "PHI.NPI":
             filtered_matches = filter_npi_matches(matches, text)
+        elif pattern_name == "PCI.CreditCard":
+            filtered_matches = filter_credit_card_matches(matches, text)
+        elif pattern_name == "PII.IBAN":
+            filtered_matches = filter_iban_matches(matches)
+        elif pattern_name == "IP.JWT":
+            filtered_matches = [m for m in matches if is_valid_jwt(m)]
+        elif pattern_name == "Secrets.Generic.BearerToken":
+            filtered_matches = filter_bearer_tokens(matches)
+        elif pattern_name == "PII.Email":
+            filtered_matches = filter_email_matches(matches)
         elif pattern_name == "Secrets.AWS.SecretAccessKey":
             # Validate each match
             filtered_matches = [m for m in matches if validate_aws_secret_key(m, text)]
