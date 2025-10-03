@@ -1,0 +1,123 @@
+from __future__ import annotations
+
+import os
+from typing import Iterable
+import tempfile
+import shutil
+import re
+
+from git import Repo, InvalidGitRepositoryError, NoSuchPathError
+
+from dspm.classify.engine import classify_text, classify_text_detailed, score_severity
+from dspm.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
+from dspm.core.models import Evidence, Finding, ScanConfig, Detection
+from dspm.utils.logging import get_logger
+from .git_auth import build_authenticated_url, get_git_credentials, get_auth_help_message
+from .base import Scanner
+
+logger = get_logger(__name__)
+
+
+class GitScanner(Scanner):
+    def scan(self, target: str, config: ScanConfig) -> Iterable[Finding]:
+        is_remote = bool(re.match(r"^(?:https?://|git@).+|.+\.git$", target))
+        tmp_dir = None
+        try:
+            if is_remote:
+                logger.info(f"Cloning remote repository: {target}")
+                tmp_dir = tempfile.mkdtemp(prefix="dspm-git-")
+                
+                # Get credentials from environment
+                creds = get_git_credentials()
+                
+                # Build authenticated URL if credentials available
+                if target.startswith("https://") and creds.get("token"):
+                    authenticated_url = build_authenticated_url(
+                        target,
+                        token=creds["token"],
+                        username=creds.get("username")
+                    )
+                    logger.info("Using token authentication")
+                elif target.startswith("git@"):
+                    authenticated_url = target
+                    logger.info("Using SSH key authentication")
+                else:
+                    authenticated_url = target
+                    logger.info("Attempting clone without explicit credentials (will use git config)")
+                
+                # Clone with depth=1 for faster scanning
+                repo = Repo.clone_from(authenticated_url, tmp_dir, depth=1)
+                root = repo.working_tree_dir or tmp_dir
+            else:
+                logger.info(f"Scanning local repository: {target}")
+                repo = Repo(target)
+                root = repo.working_tree_dir or target
+        except (InvalidGitRepositoryError, NoSuchPathError, Exception) as e:
+            logger.error(f"Failed to access git repository {target}: {e}")
+            error_str = str(e).lower()
+            if any(keyword in error_str for keyword in ["authentication", "credentials", "permission denied", "could not read", "403", "401"]):
+                logger.error("\n" + get_auth_help_message(target))
+            if tmp_dir:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+            return []
+        
+        scanned_count = 0
+        for blob in repo.head.commit.tree.traverse():
+            if blob.type != "blob":
+                continue
+            path = os.path.join(root, blob.path)
+            try:
+                data = blob.data_stream.read(config.sample_bytes)
+                text = data.decode("utf-8", errors="ignore")
+            except Exception:
+                continue
+
+            labels = classify_text(text)
+            detailed = classify_text_detailed(text)
+            classifications = [
+                f"GDPR:{l}" for l in labels.get("GDPR", [])
+            ] + [
+                f"HIPAA:{l}" for l in labels.get("HIPAA", [])
+            ] + [
+                f"PCI:{l}" for l in labels.get("PCI", [])
+            ] + [
+                f"SECRETS:{l}" for l in labels.get("SECRETS", [])
+            ]
+            if not classifications:
+                continue
+
+            detections = [
+                Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])
+                for (b, name, matches) in detailed
+            ]
+            sev, desc = score_severity(len(detections), sum(len(d.matches) for d in detections))
+            sens, sens_factors = compute_sensitivity_score(detections)
+            expo, expo_factors = compute_exposure_factor("git", {})
+            risk, risk_level = compute_risk(sens, expo)
+            
+            scanned_count += 1
+            logger.info(f"Found {len(detections)} detection(s) in {blob.path}")
+            
+            yield Finding(
+                id=f"git:{blob.hexsha[:8]}/{blob.path}",
+                resource=root,
+                location=path,
+                classifications=classifications,
+                evidence=[Evidence(snippet=text[:200])],
+                severity=sev,
+                data_source="git",
+                profile=root,
+                file_path=blob.path,
+                severity_description=desc,
+                detections=detections,
+                risk_score=risk,
+                risk_level=risk_level,
+                risk_factors=sens_factors + expo_factors,
+            )
+        
+        logger.info(f"Git scan complete. Scanned {scanned_count} files in {target}")
+        if tmp_dir:
+            logger.info(f"Cleaning up temporary clone: {tmp_dir}")
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+

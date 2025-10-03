@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=62", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ghostlight"
+version = "0.1.0"
+description = "Data Security Posture Management scanning tool"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "Your Name", email = "you@example.com"}]
+dependencies = []
+
+[project.scripts]
+ghostlight = "dspm.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dspm*"]
+exclude = ["tests*"]
+

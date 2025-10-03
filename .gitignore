@@ -1,0 +1,15 @@
+*/__pycache__/
+.venv/
+.dspmenv/
+*.egg-info/
+*.json
+*.md
+*.txt
+*.csv
+*.log
+*.yaml
+*.yml
+.DS_Store
+.env
+results/
+*.pyc
