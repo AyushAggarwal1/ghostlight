@@ -12,7 +12,7 @@ Quick Commands
 | <img src="assets/icons/git.svg" width="28" /> | Git | `ghostlight scan --scanner git --target https://github.com/user/repo.git` |
 | <img src="assets/icons/s3.svg" width="28" /> | Amazon S3 | `ghostlight scan --scanner s3 --target my-bucket/prefix` |
 | <img src="assets/icons/gcs.svg" width="28" /> | Google Cloud Storage | `ghostlight scan --scanner gcs --target my-bucket` |
-| <img src="assets/icons/azure.svg" width="28" /> | Azure Blob | `ghostlight scan --scanner azure --target "conn|container/prefix"` |
+| <img src="assets/icons/azure.svg" width="28" /> | Azure Blob | `ghostlight scan --scanner azure --target "conn/container/prefix"` |
 | <img src="assets/icons/gdrive.svg" width="28" /> | Google Drive | `ghostlight scan --scanner gdrive --target default` |
 | <img src="assets/icons/gdrive_workspace.svg" width="28" /> | GDrive Workspace | `ghostlight scan --scanner gdrive_workspace --target /path/to/delegated.json` |
 | <img src="assets/icons/slack.svg" width="28" /> | Slack | `ghostlight scan --scanner slack --target "xoxb-...:C12345"` |
