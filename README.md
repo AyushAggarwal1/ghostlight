@@ -45,11 +45,11 @@ Preview:
 - Sensitivity scoring based on pattern weights
 - Exposure risk assessment (encryption, public access, versioning)
 - Combined risk scoring with actionable factors
-- **🤖 AI-Powered False Positive Reduction** (NEW!)
+<!-- - **🤖 AI-Powered False Positive Reduction** (NEW!)
   - Uses LLMs (Ollama/OpenAI/Anthropic) to filter false positives
   - Context-aware analysis of detections
   - 93%+ reduction in false positives
-  - See [AI_FILTERING.md](AI_FILTERING.md) for details
+  - See [AI_FILTERING.md](AI_FILTERING.md) for details -->
 
 ### Multi-Format Support
 - Text files: `.txt`, `.md`, `.csv`, `.log`, `.json`, `.yaml`, `.xml`, `.html`
@@ -75,6 +75,35 @@ python -m ghostlight --help
 python -m pip install -e .
 ghostlight --help
 ```
+
+Documentation
+-------------
+
+- Connector setup index: [readmes/INDEX.md](readmes/INDEX.md)
+- JSON output guide: [output_json.md](output_json.md)
+
+Per-connector setup guides (alphabetical):
+- [Amazon S3](readmes/s3.md)
+- [AWS Aggregate (RDS+S3+EC2)](readmes/aws.md)
+- [Azure Blob Storage](readmes/azure.md)
+- [Confluence](readmes/confluence.md)
+- [CouchDB](readmes/couchdb.md)
+- [EC2](readmes/ec2.md)
+- [Filesystem](readmes/fs.md)
+- [Firebase Firestore](readmes/firebase.md)
+- [Git](readmes/git.md)
+- [Google Cloud Storage](readmes/gcs.md)
+- [Google Drive](readmes/gdrive.md)
+- [Google Drive Workspace](readmes/gdrive_workspace.md)
+- [Jira](readmes/jira.md)
+- [MongoDB](readmes/mongo.md)
+- [MySQL](readmes/mysql.md)
+- [PostgreSQL](readmes/postgres.md)
+- [RDS](readmes/rds.md)
+- [Redis](readmes/redis.md)
+- [Slack](readmes/slack.md)
+- [Text](readmes/text.md)
+- [Virtual Machines over SSH](readmes/vm.md)
 
 Docker
 ------
@@ -597,159 +626,16 @@ rds://dev-db/postgres:testdb:
 - Samples limited data (configurable via `--sample-bytes`)
 - Supports SSL/TLS connections (default for RDS)
 
-Connector Configuration and Scan Guide
---------------------------------------
-
-This section shows how to configure and run scans for every connector supported by ghostlight.
-
-Prerequisites
--------------
-- Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-- Optional connectors require extra deps (already listed in `requirements.txt`):
-  - GCS: `google-cloud-storage`
-  - Google Drive/Workspace: `google-api-python-client`, `google-auth`
-  - Slack: `slack-sdk`
-  - CouchDB: `couchdb`
-
-
-Filesystem (fs)
+Further Reading
 ---------------
-Scan a file or directory. Skips binaries by default.
-```bash
-ghostlight scan --scanner fs --target /path/to/dir --format table
-ghostlight scan --scanner fs --target ./file.txt --format json --output fs.json
-```
+- Connector setup index: [readmes/INDEX.md](readmes/INDEX.md)
+- JSON output guide: [output_json.md](output_json.md)
+- Architecture and data flow: [readmes/architecture.md](readmes/architecture.md)
 
-Text (inline)
--------------
-Scan a raw string or pasted text.
-```bash
-ghostlight scan --scanner text --target "my api key is sk_live_..." --format table
-```
-
-Git (local or remote)
----------------------
-Authenticate via env if needed: `GITHUB_TOKEN`, `GITLAB_TOKEN`, or SSH keys.
-```bash
-ghostlight scan --scanner git --target /path/to/repo
-ghostlight scan --scanner git --target https://github.com/user/repo.git
-ghostlight scan --scanner git --target git@github.com:user/private-repo.git
-```
-
-Amazon S3 (s3)
---------------
-Requires AWS creds: `aws configure` or `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`.
-```bash
-ghostlight scan --scanner s3 --target my-bucket
-ghostlight scan --scanner s3 --target my-bucket/prefix --format json --output s3.json
-```
-
-Google Cloud Storage (gcs)
---------------------------
-Requires Application Default Credentials or service account. Set `GOOGLE_APPLICATION_CREDENTIALS=/path/key.json`.
-```bash
-ghostlight scan --scanner gcs --target my-gcs-bucket
-ghostlight scan --scanner gcs --target my-gcs-bucket/path/prefix
-```
-
-Google Drive (gdrive)
----------------------
-Use a service account JSON (recommended) or default credentials.
-```bash
-ghostlight scan --scanner gdrive --target /path/to/service_account.json
-# or rely on default creds
-ghostlight scan --scanner gdrive --target default
-```
-
-Google Drive Workspace (gdrive_workspace)
------------------------------------------
-Requires domain-wide delegation service account with Drive and Admin Directory readonly scopes.
-```bash
-ghostlight scan --scanner gdrive_workspace --target /path/to/delegated_service_account.json
-```
-
-Slack (slack)
--------------
-Provide a bot token and optional channel id: `xoxb-...:C12345`. If no channel is provided, first 50 channels are scanned.
-```bash
-ghostlight scan --scanner slack --target "xoxb-XXXXX:C0123456789"
-ghostlight scan --scanner slack --target "xoxb-XXXXX"
-```
-
-Azure Blob Storage (azure)
---------------------------
-Target format: `"<connection-string>|container/prefix"`.
-```bash
-ghostlight scan --scanner azure --target "DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net|container/prefix"
-```
-
-Virtual Machines over SSH (vm)
-------------------------------
-Scan files on remote hosts via SSH. See `VM_SCANNING_EXAMPLES.md` for more.
-```bash
-ghostlight scan --scanner vm --target "user@host:/etc,/var/log" --format table
-```
-
-AWS Aggregated (aws)
---------------------
-Auto-discovers RDS, S3, and EC2. See `AWS_COMPREHENSIVE_SCANNING.md`.
-```bash
-ghostlight scan --scanner aws --target all --format json --output aws.json
-ghostlight scan --scanner aws --target rds,s3
-```
-
-PostgreSQL (postgres)
----------------------
-Target format: `postgres://user:pass@host:port/db:schema.table1,schema.table2`
-```bash
-ghostlight scan --scanner postgres --target "postgres://user:pass@db:5432/app:public.users,public.orders"
-```
-
-MySQL (mysql)
--------------
-Target format: `mysql://user:pass@host:port/db` (now supports direct DSN)
-```bash
-ghostlight scan --scanner mysql --target "mysql://user:pass@db:3306/app"
-ghostlight scan --scanner mysql --target "mysql://user:pass@db:3306/app" --list-tables --show-sql
-```
-
-MongoDB (mongo)
----------------
-Target format: `mongodb://user:pass@host:port/db:collection1,collection2`
-```bash
-ghostlight scan --scanner mongo --target "mongodb://user:pass@mongo:27017/app:users,events"
-```
-
-Redis (redis)
--------------
-Target is a standard Redis URL.
-```bash
-ghostlight scan --scanner redis --target "redis://redis:6379/0"
-```
-
-Firebase Firestore (firebase)
------------------------------
-Target format: `firestore:project_id:collection1,collection2`. Requires `firebase-admin` and access to the project.
-```bash
-ghostlight scan --scanner firebase --target "firestore:my-gcp-project:users,events"
-```
-
-CouchDB (couchdb)
------------------
-Target format: `http[s]://user:pass@host:port:db1,db2`
-```bash
-ghostlight scan --scanner couchdb --target "http://admin:pass@couchdb:5984:users,orders"
-```
-
-Notes on False Positives
-------------------------
-- Ghostlight applies context-aware filters to reduce false positives (phone, SSN, coordinates, AWS keys).
-- Tune `--sample-bytes` for performance vs. coverage.
-- Use JSON/Markdown outputs for post-processing and triage.
-
+Notes
+-----
+- Ghostlight applies context-aware filters to reduce false positives (e.g., phone vs timestamp, credit-card Luhn checks, JWT validation).
+- Use `--strict` and `--min-entropy` to tune precision; see per-connector guides for details.
 
 License
 -------
