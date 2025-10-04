@@ -9,7 +9,8 @@ try:
 except Exception:  # pragma: no cover
     paramiko = None
 
-from ghostlight.classify.engine import classify_text, classify_text_detailed, score_severity
+from ghostlight.classify.engine import classify_text_detailed, score_severity
+from ghostlight.classify.filters import apply_context_filters
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
 from ghostlight.utils.snippets import earliest_line_and_snippet
@@ -126,37 +127,15 @@ class VMScanner(Scanner):
                 
                 scanned_count += 1
                 
-                # Classify text
-                labels = classify_text(text)
+                # Classify and apply context-aware FP reduction
                 detailed = classify_text_detailed(text)
-                
-                classifications = [
-                    f"GDPR:{l}" for l in labels.get("GDPR", [])
-                ] + [
-                    f"HIPAA:{l}" for l in labels.get("HIPAA", [])
-                ] + [
-                    f"PCI:{l}" for l in labels.get("PCI", [])
-                ] + [
-                    f"SECRETS:{l}" for l in labels.get("SECRETS", [])
-                ] + [
-                    f"IP:{l}" for l in labels.get("IP", [])
-                ]
-                
-                # Compute earliest line across matches
-                def line_of(match_str: str) -> int:
-                    idx = text.find(match_str)
-                    if idx < 0:
-                        return 1
-                    return text.count("\n", 0, idx) + 1
-                earliest_line = None
-                for (_b, _n, matches) in detailed:
-                    for m in matches:
-                        ln = line_of(m)
-                        earliest_line = ln if earliest_line is None else min(earliest_line, ln)
+                filtered = apply_context_filters(detailed, text, min_entropy=config.min_entropy)
+                if not filtered:
+                    continue
 
                 detections = [
                     Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])
-                    for (b, name, matches) in detailed
+                    for (b, name, matches) in filtered
                 ]
                 
                 if not classifications:
@@ -170,6 +149,8 @@ class VMScanner(Scanner):
                 expo, expo_factors = compute_exposure_factor("vm", {"host": host})
                 risk, risk_level = compute_risk(sens, expo)
                 
+                # Build classifications from filtered patterns and compute snippet
+                classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
                 earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
                 logger.info(f"Found {len(detections)} detection(s) in {full_path}")
                 
