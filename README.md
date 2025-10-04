@@ -1,4 +1,4 @@
-ghostlight
+ghostlight <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache-2.0" align="right" />
 ============
 
 Data Security Posture Management tool that scans cloud storage, VMs, databases, and git repositories to detect sensitive data and classify findings against GDPR, HIPAA, PCI, and secrets exposure.
@@ -725,5 +725,11 @@ Notes on False Positives
 - Ghostlight applies context-aware filters to reduce false positives (phone, SSN, coordinates, AWS keys).
 - Tune `--sample-bytes` for performance vs. coverage.
 - Use JSON/Markdown outputs for post-processing and triage.
+
+
+License
+-------
+
+This project is licensed under the Apache License, Version 2.0. See the `LICENSE` file for details.
 
 
