@@ -1,4 +1,4 @@
-ghostlight <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache-2.0" align="right" />
+ghostlight <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache-2.0" align="right" /> <img src="https://img.shields.io/docker/pulls/ayush1136/ghostlight" alt="Docker Pulls" align="right" /> <img src="https://github.com/AyushAggarwal1/ghostlight/actions/workflows/ci.yml/badge.svg" alt="CI" align="right" />
 ============
 
 Data Security Posture Management tool that scans cloud storage, VMs, databases, and git repositories to detect sensitive data and classify findings against GDPR, HIPAA, PCI, and secrets exposure.
@@ -74,6 +74,30 @@ pip install -r requirements.txt
 python -m ghostlight --help
 python -m pip install -e .
 ghostlight --help
+```
+
+Docker
+------
+
+```bash
+docker pull ayush1136/ghostlight:latest
+```
+
+Run (basic):
+```bash
+docker run --rm \
+  ayush1136/ghostlight:latest \
+  --help
+```
+
+Run a scan and write results to host (recommended):
+```bash
+mkdir -p ./scan_result
+docker run --rm \
+  -v $(pwd)/scan_result:/out \
+  ayush1136/ghostlight:latest \
+  scan --scanner fs --target /app \
+  --format json --output /out/fs.json
 ```
 
 Usage

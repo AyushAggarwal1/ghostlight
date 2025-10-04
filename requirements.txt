@@ -36,4 +36,5 @@ couchdb==1.2
 
 openai>=1.0.0
 anthropic>=0.18.0
+prometheus-client==0.20.0
 

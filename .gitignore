@@ -212,8 +212,6 @@ __marimo__/
 *.json
 *.csv
 *.log
-*.yaml
-*.yml
 .DS_Store
 .env
 results/
