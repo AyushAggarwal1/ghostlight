@@ -483,7 +483,16 @@ def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_fil
             # Extract metadata
             db_engine = f.metadata.get("db_engine", "N/A") if f.metadata else "N/A"
             table_name = f.metadata.get("table_name", f.file_path or "N/A") if f.metadata else (f.file_path or "N/A")
-            finding_name = f.profile or f.severity_description or "Sensitive data detected"
+            # Prefer friendly names (page/issue titles) over profile
+            friendly = None
+            if f.metadata:
+                friendly = (
+                    f.metadata.get("page_title")
+                    or f.metadata.get("summary")
+                    or f.metadata.get("issue_key")
+                    or f.metadata.get("channel_name")
+                )
+            finding_name = friendly or f.file_path or f.profile or f.severity_description or "Sensitive data detected"
             
             # Format classifications (max 3)
             classifications_list = f.classifications[:3]
