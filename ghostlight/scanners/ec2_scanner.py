@@ -18,6 +18,7 @@ from ghostlight.classify.engine import classify_text, classify_text_detailed, sc
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
 from ghostlight.utils.logging import get_logger
+from ghostlight.utils.snippets import earliest_line_and_snippet
 from .base import Scanner
 
 logger = get_logger(__name__)
@@ -235,14 +236,15 @@ find {path} -type f \\
         expo, expo_factors = compute_exposure_factor("ec2", {"instance_id": instance_id})
         risk, risk_level = compute_risk(sens, expo)
         
+        earliest_line, snippet_line = earliest_line_and_snippet(text, detailed)
         logger.info(f"Found {len(detections)} detection(s) in {file_path}")
         
         yield Finding(
             id=f"ec2:{instance_id}{file_path}",
             resource=instance_id,
-            location=f"ec2://{instance_id}{file_path}",
+            location=f"ec2://{instance_id}{file_path}:{earliest_line or 1}",
             classifications=classifications,
-            evidence=[Evidence(snippet=text[:200])],
+            evidence=[Evidence(snippet=snippet_line)],
             severity=sev,
             data_source="ec2",
             profile=instance_id,

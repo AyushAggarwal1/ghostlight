@@ -29,6 +29,7 @@ except Exception:  # pragma: no cover
 from ghostlight.classify.engine import classify_text, classify_text_detailed
 from ghostlight.classify.filters import apply_context_filters
 from ghostlight.core.models import Evidence, Finding, ScanConfig
+from ghostlight.utils.snippets import earliest_line_and_snippet
 from .base import Scanner
 
 
@@ -138,14 +139,15 @@ class PostgresScanner(Scanner):
             sample = "\n".join(str(r) for r in rows)[: config.sample_bytes]
             detailed = classify_text_detailed(sample)
             filtered = apply_context_filters(detailed, sample, table_name=f"{schema}.{table}", db_engine="postgres")
+            earliest_line, snippet_line = earliest_line_and_snippet(sample, filtered)
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             if classifications:
                 yield Finding(
                     id=f"pg:{schema}.{table}",
                     resource=dsn,
-                    location=f"{dsn}/{schema}.{table}",
+                    location=f"{dsn}/{schema}.{table}:{earliest_line or 1}",
                     classifications=classifications,
-                    evidence=[Evidence(snippet=sample[:200])],
+                    evidence=[Evidence(snippet=snippet_line)],
                     severity="medium",
                     metadata={
                         "db_engine": "postgresql",
@@ -267,14 +269,15 @@ class MySQLScanner(Scanner):
             sample = "\n".join(str(r) for r in rows)[: config.sample_bytes]
             detailed = classify_text_detailed(sample)
             filtered = apply_context_filters(detailed, sample, table_name=table, db_engine="mysql")
+            earliest_line, snippet_line = earliest_line_and_snippet(sample, filtered)
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             if classifications:
                 yield Finding(
                     id=f"mysql:{db_name}.{table}",
                     resource=dsn,
-                    location=f"{dsn}/{table}",
+                    location=f"{dsn}/{table}:{earliest_line or 1}",
                     classifications=classifications,
-                    evidence=[Evidence(snippet=sample[:200])],
+                    evidence=[Evidence(snippet=snippet_line)],
                     severity="medium",
                     metadata={
                         "db_engine": "mysql",
@@ -322,14 +325,15 @@ class MongoScanner(Scanner):
             sample = "\n".join(str(d) for d in docs)[: config.sample_bytes]
             detailed = classify_text_detailed(sample)
             filtered = apply_context_filters(detailed, sample, table_name=coll, db_engine="mongodb")
+            earliest_line, snippet_line = earliest_line_and_snippet(sample, filtered)
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             if classifications:
                 yield Finding(
                     id=f"mongo:{coll}",
                     resource=dsn,
-                    location=f"{dsn}/{coll}",
+                    location=f"{dsn}/{coll}:{earliest_line or 1}",
                     classifications=classifications,
-                    evidence=[Evidence(snippet=sample[:200])],
+                    evidence=[Evidence(snippet=snippet_line)],
                     severity="medium",
                 )
         client.close()
@@ -355,14 +359,15 @@ class RedisScanner(Scanner):
                 continue
             detailed = classify_text_detailed(text)
             filtered = apply_context_filters(detailed, text, db_engine="redis")
+            earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             if classifications:
                 yield Finding(
                     id=f"redis:{k}",
                     resource=target,
-                    location=f"{target}/{k}",
+                    location=f"{target}/{k}:{earliest_line or 1}",
                     classifications=classifications,
-                    evidence=[Evidence(snippet=text[:200])],
+                    evidence=[Evidence(snippet=snippet_line)],
                     severity="medium",
                 )
 
@@ -389,14 +394,15 @@ class FirebaseScanner(Scanner):
             sample = "\n".join(str(r) for r in rows)[: config.sample_bytes]
             detailed = classify_text_detailed(sample)
             filtered = apply_context_filters(detailed, sample, table_name=coll, db_engine="firestore")
+            earliest_line, snippet_line = earliest_line_and_snippet(sample, filtered)
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             if classifications:
                 yield Finding(
                     id=f"firebase:{coll}",
                     resource=project,
-                    location=f"firestore://{project}/{coll}",
+                    location=f"firestore://{project}/{coll}:{earliest_line or 1}",
                     classifications=classifications,
-                    evidence=[Evidence(snippet=sample[:200])],
+                    evidence=[Evidence(snippet=snippet_line)],
                     severity="medium",
                 )
 

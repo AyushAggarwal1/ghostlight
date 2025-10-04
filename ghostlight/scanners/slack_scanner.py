@@ -10,6 +10,7 @@ except Exception:  # pragma: no cover
 from ghostlight.classify.engine import classify_text_detailed, score_severity
 from ghostlight.classify.filters import apply_context_filters
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.utils.snippets import earliest_line_and_snippet
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.utils.logging import get_logger
 from .base import Scanner
@@ -120,12 +121,13 @@ class SlackScanner(Scanner):
                 expo, expo_factors = compute_exposure_factor("slack", expo_meta)
                 risk, risk_level = compute_risk(sens, expo)
 
+                earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
                 yield Finding(
                     id=f"slack:{ch}:{ts}",
                     resource=channel_name,
-                    location=permalink or f"slack://{ch}/{ts}",
+                    location=(permalink or f"slack://{ch}/{ts}:{earliest_line or 1}"),
                     classifications=[f"{b}:{n}" for (b, n, _m) in filtered],
-                    evidence=[Evidence(snippet=text[:200])],
+                    evidence=[Evidence(snippet=snippet_line)],
                     severity=sev,
                     metadata=expo_meta,
                     data_source="slack",

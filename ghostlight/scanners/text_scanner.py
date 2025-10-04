@@ -4,6 +4,7 @@ from typing import Iterable
 
 from ghostlight.classify.engine import classify_text_detailed, score_severity
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.utils.snippets import earliest_line_and_snippet
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.classify.filters import apply_context_filters
 from .base import Scanner
@@ -21,6 +22,7 @@ class TextScanner(Scanner):
             Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])
             for (b, name, matches) in filtered
         ]
+        earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
         sev, desc = score_severity(len(detections), sum(len(d.matches) for d in detections))
         sens, sens_factors = compute_sensitivity_score(detections)
         expo, expo_factors = compute_exposure_factor("text", {})
@@ -28,9 +30,9 @@ class TextScanner(Scanner):
         yield Finding(
             id="text:input",
             resource="text",
-            location="stdin",
+            location=f"stdin:{earliest_line or 1}",
             classifications=[f"{b}:{n}" for (b, n, _m) in filtered],
-            evidence=[Evidence(snippet=text[:200])],
+            evidence=[Evidence(snippet=snippet_line)],
             severity=sev,
             data_source="text",
             profile="inline",

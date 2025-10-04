@@ -16,6 +16,7 @@ from ghostlight.classify.engine import classify_text, classify_text_detailed, sc
 from ghostlight.classify.filters import apply_context_filters
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.utils.snippets import earliest_line_and_snippet
 from ghostlight.utils.logging import get_logger
 from ghostlight.utils.retry import retry_on_exception
 from .s3_config import check_bucket_public_access
@@ -60,17 +61,8 @@ class S3Scanner(Scanner):
                     detailed = classify_text_detailed(text)
                     filtered = apply_context_filters(detailed, text, min_entropy=config.min_entropy)
                     classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
-                    # Compute earliest line across matches
-                    def line_of(match_str: str) -> int:
-                        idx = text.find(match_str)
-                        if idx < 0:
-                            return 1
-                        return text.count("\n", 0, idx) + 1
-                    earliest_line = None
-                    for (_b, _n, matches) in filtered:
-                        for m in matches:
-                            ln = line_of(m)
-                            earliest_line = ln if earliest_line is None else min(earliest_line, ln)
+                    # Compute earliest line and snippet
+                    earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
 
                     detections = [
                         Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])
@@ -119,7 +111,7 @@ class S3Scanner(Scanner):
                         resource=bucket,
                         location=f"s3://{bucket}/{key}:{earliest_line or 1}",
                         classifications=classifications,
-                        evidence=[Evidence(snippet=text[:200])],
+                        evidence=[Evidence(snippet=snippet_line)],
                         severity=sev,
                         metadata=meta,
                         data_source="s3",

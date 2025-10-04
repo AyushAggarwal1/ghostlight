@@ -10,6 +10,7 @@ except Exception:  # pragma: no cover
 from ghostlight.classify.engine import classify_text_detailed, score_severity
 from ghostlight.classify.filters import apply_context_filters
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.utils.snippets import earliest_line_and_snippet
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.utils.logging import get_logger
 from .base import Scanner
@@ -44,6 +45,7 @@ class CouchDBScanner(Scanner):
             filtered = apply_context_filters(detailed, sample, table_name=dbname, db_engine="couchdb")
             if not filtered:
                 continue
+            earliest_line, snippet_line = earliest_line_and_snippet(sample, filtered)
             detections = [
                 Detection(bucket=b, pattern_name=name, matches=matches, sample_text=sample[:200])
                 for (b, name, matches) in filtered
@@ -55,9 +57,9 @@ class CouchDBScanner(Scanner):
             yield Finding(
                 id=f"couchdb:{dbname}",
                 resource=dsn,
-                location=f"{dsn}/{dbname}",
+                location=f"{dsn}/{dbname}:{earliest_line or 1}",
                 classifications=[f"{b}:{n}" for (b, n, _m) in filtered],
-                evidence=[Evidence(snippet=sample[:200])],
+                evidence=[Evidence(snippet=snippet_line)],
                 severity=sev,
                 data_source="couchdb",
                 profile=dbname,

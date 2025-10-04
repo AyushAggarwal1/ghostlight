@@ -11,6 +11,7 @@ from git import Repo, InvalidGitRepositoryError, NoSuchPathError
 from ghostlight.classify.engine import classify_text, classify_text_detailed, score_severity
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.utils.snippets import earliest_line_and_snippet
 from ghostlight.utils.logging import get_logger
 from .git_auth import build_authenticated_url, get_git_credentials, get_auth_help_message
 from .base import Scanner
@@ -114,12 +115,13 @@ class GitScanner(Scanner):
             scanned_count += 1
             logger.info(f"Found {len(detections)} detection(s) in {blob.path}")
             
+            earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
             yield Finding(
                 id=f"git:{blob.hexsha[:8]}/{blob.path}",
                 resource=root,
                 location=f"{path}:{earliest_line or 1}",
                 classifications=classifications,
-                evidence=[Evidence(snippet=text[:200])],
+                evidence=[Evidence(snippet=snippet_line)],
                 severity=sev,
                 data_source="git",
                 profile=root,

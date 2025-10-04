@@ -125,6 +125,15 @@ SECRETS_RULES = {
 	# Twilio Account SID and Auth Token
 	"Secrets.Twilio.AccountSID": re.compile(r"\bAC[0-9a-fA-F]{32}\b"),
 	"Secrets.Twilio.AuthToken": re.compile(r"\b[0-9a-fA-F]{32}\b"),
+	# Slack app/user tokens (additional prefixes)
+	"Secrets.Slack.AppToken": re.compile(r"\bxox[ascr]-[0-9A-Za-z\-]{40,}\b"),
+	# GitHub App and new token formats
+	"Secrets.GitHub.AppToken": re.compile(r"\b(?:ghs|ghu|gho)_[A-Za-z0-9]{36}\b"),
+	"Secrets.GitHub.PersonalTokenNew": re.compile(r"\bgithub_pat_[0-9A-Za-z_]{22,}\b"),
+	# Stripe webhook signing secret
+	"Secrets.Stripe.WebhookSecret": re.compile(r"\bwhsec_[A-Za-z0-9]{32}\b"),
+	# Azure AD application/client IDs (GUID)
+	"Secrets.AzureAD.ClientID": re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"),
 }
 
 

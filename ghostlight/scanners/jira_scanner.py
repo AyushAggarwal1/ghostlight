@@ -11,10 +11,11 @@ except Exception:  # pragma: no cover
 	requests = None
 
 from ghostlight.classify.engine import classify_text_detailed, score_severity
-from ghostlight.classify.filters import apply_context_filters
+from ghostlight.classify.filters import apply_context_filters, detect_primary_language
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.utils.logging import get_logger
+from ghostlight.utils.text_extract import extract_text_from_file
 from .base import Scanner
 
 logger = get_logger(__name__)
@@ -109,6 +110,8 @@ class JiraScanner(Scanner):
 		else:
 			jql = f"project={project} AND updated >= -30d ORDER BY updated DESC"
 
+		logger.info(f"Starting Jira scan: project={project}, sample_bytes={config.sample_bytes}, jql=<{jql}>")
+
 		session = requests.Session()
 		session.auth = (email, token)
 		session.headers.update({"Accept": "application/json"})
@@ -142,6 +145,7 @@ class JiraScanner(Scanner):
 				# Pagination
 				is_last = bool(payload.get("isLast", True))
 				next_token = payload.get("nextPageToken") if not is_last else None
+				logger.info(f"Jira: fetched {len(issues)} issue(s) (is_last={is_last})")
 			except requests.exceptions.HTTPError as http_err:
 				status = getattr(http_err.response, "status_code", None)
 				# Only fallback on 404 (older servers). Do NOT fallback on 410 (deprecated) or 400.
@@ -180,7 +184,50 @@ class JiraScanner(Scanner):
 				fields = issue.get("fields", {})
 				summary = fields.get("summary") or ""
 				desc = (fields.get("description") or "")
-				text = (summary + "\n" + str(desc))[: config.sample_bytes]
+				# Aggregate text: summary + description + comments + attachment texts (OCR/PDF/etc.)
+				text_parts: List[str] = [summary or "", str(desc) or ""]
+				logger.info(f"Scanning Jira issue: {key} | {summary[:60]}")
+				# Fetch comments
+				try:
+					c_resp = session.get(f"{base}/rest/api/3/issue/{key}/comment", timeout=15)
+					if c_resp.ok:
+						comments = (c_resp.json().get("comments") or [])
+						for c in comments[:20]:
+							body = c.get("body")
+							if isinstance(body, dict) and "content" in body:
+								# JIRA ADF: pick plain text pieces
+								try:
+									bt = []
+									for blk in body.get("content", []):
+										for it in blk.get("content", []):
+											if it.get("text"):
+												bt.append(it.get("text"))
+									if bt:
+										text_parts.append("\n".join(bt))
+								except Exception:
+									pass
+							elif isinstance(body, str):
+								text_parts.append(body)
+						logger.info(f"Jira: added {min(len(comments),20)} comment(s) from {key}")
+						logger.info(f"Jira: added {min(len(comments),20)} comment(s) from {key}")
+				except Exception:
+					pass
+
+				# Fetch attachments (metadata only), do not download binaries; include filenames and OCR if small and public URL
+				try:
+					fields_attachments = fields.get("attachment") or []
+					att_names = []
+					for att in fields_attachments[:5]:
+						name = str(att.get("filename") or "")
+						att_names.append(name)
+					# Add attachment filenames to context
+					if att_names:
+						text_parts.append("\n".join(att_names))
+						logger.info(f"Jira: issue {key} has {len(fields_attachments)} attachment(s); added top {len(att_names)} name(s)")
+				except Exception:
+					pass
+
+				text = ("\n".join(p for p in text_parts if p)).strip()[: config.sample_bytes]
 				if not text.strip():
 					continue
 
@@ -218,6 +265,11 @@ class JiraScanner(Scanner):
 					"exact_matches_count": str(len(exact_matches)),
 					"exact_matches": json.dumps(exact_matches[:50]),
 				}
+
+				# Language metadata
+				lang = detect_primary_language(text)
+				if lang:
+					metadata["language"] = lang
 
 				detections = [
 					Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])

@@ -8,6 +8,7 @@ from ghostlight.classify.filters import apply_context_filters
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
 from ghostlight.utils.text_extract import extract_text_from_file
+from ghostlight.utils.snippets import earliest_line_and_snippet
 from ghostlight.utils.validation import is_binary_file
 from ghostlight.utils.logging import get_logger
 from .base import Scanner
@@ -87,23 +88,13 @@ class FileSystemScanner(Scanner):
             detailed = classify_text_detailed(text)
             # Apply context-aware FP reduction (entropy-aware)
             filtered = apply_context_filters(detailed, text, min_entropy=config.min_entropy)
-            # Compute line numbers for matches within the sampled text
-            def line_of(match_str: str) -> int:
-                idx = text.find(match_str)
-                if idx < 0:
-                    return 1
-                return text.count("\n", 0, idx) + 1
-
             # Build classifications and detections from filtered results
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             detections = []
-            detection_lines = []
             for (b, name, matches) in filtered:
                 detections.append(Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200]))
-                # Track the earliest line among the matches for this detection
-                line_candidates = [line_of(m) for m in matches]
-                if line_candidates:
-                    detection_lines.append(min(line_candidates))
+            # Compute exact earliest line and use that line as snippet
+            earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
             # Strict mode: require >=2 detections or >=2 total matches
             if config.strict and not (len(detections) >= 2 or sum(len(d.matches) for d in detections) >= 2):
                 continue
@@ -120,9 +111,9 @@ class FileSystemScanner(Scanner):
             yield Finding(
                 id=f"fs:{os.path.relpath(path, root) if root != path else name}",
                 resource=root,
-                location=(f"{path}:{min(detection_lines)}" if detection_lines else path),
+                location=(f"{path}:{earliest_line}" if classifications else path),
                 classifications=classifications,
-                evidence=[Evidence(snippet=text[:200])],
+                evidence=[Evidence(snippet=snippet_line)],
                 severity=sev,
                 data_source="filesystem",
                 profile=root,

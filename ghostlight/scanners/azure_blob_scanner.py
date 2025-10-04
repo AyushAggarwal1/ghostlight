@@ -7,8 +7,10 @@ try:
 except Exception:  # pragma: no cover
     BlobServiceClient = None
 
-from ghostlight.classify.engine import classify_text
+from ghostlight.classify.engine import classify_text, classify_text_detailed
+from ghostlight.classify.filters import apply_context_filters
 from ghostlight.core.models import Evidence, Finding, ScanConfig
+from ghostlight.utils.snippets import earliest_line_and_snippet
 from .base import Scanner
 
 
@@ -38,13 +40,9 @@ class AzureBlobScanner(Scanner):
             except Exception:
                 continue
             labels = classify_text(text)
-            # Earliest line across regex matches by rerunning detailed on this small text via GDPR/HIPAA/PCI/SECRETS patterns indirectly
-            # Reuse summarize by checking first found of each present label; keep simple approximation
-            def line_of(substr: str) -> int:
-                idx = (text or "").find(substr)
-                return (text.count("\n", 0, idx) + 1) if idx >= 0 else 1
-            # For simplicity, no detailed list here; set line to 1 if unknown
-            earliest_line = 1
+            detailed = classify_text_detailed(text)
+            filtered = apply_context_filters(detailed, text)
+            earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
 
             classifications = [
                 f"GDPR:{l}" for l in labels.get("GDPR", [])
@@ -60,9 +58,9 @@ class AzureBlobScanner(Scanner):
             yield Finding(
                 id=f"azure:{container}/{blob.name}",
                 resource=container,
-                location=f"azure://{container}/{blob.name}:{earliest_line}",
+                location=f"azure://{container}/{blob.name}:{earliest_line or 1}",
                 classifications=classifications,
-                evidence=[Evidence(snippet=text[:200])],
+                evidence=[Evidence(snippet=snippet_line)],
                 severity="medium",
             )
 

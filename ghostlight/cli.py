@@ -11,6 +11,7 @@ from .core.models import ScanConfig
 from .reporters.json_reporter import to_json as reporter_json
 from .reporters.json_reporter import serialize_finding
 from .reporters.markdown_reporter import to_markdown as reporter_md
+from .classify.filters import detect_primary_language
 
 
 console = Console()
@@ -152,10 +153,32 @@ def _print_magnifier():
 
     try:
         console.print(f"[bold cyan]{star_block}[/bold cyan]")
+        tagline = "Your data has secrets. GHOSTLIGHT (🕵️‍♂️) expose them."
+        inner_pad = max(0, (block_width - len(tagline)) // 2)
+        tagline_line = (" " * left_pad) + (" " * inner_pad) + tagline
+        console.print(f"[bold green]{tagline_line}[/bold green]")
         console.print(f"[cyan]{art_block}[/cyan]\n")
     except Exception:
         print(star_block)
         print(art_block + "\n")
+
+
+def _enrich_language_metadata(f):
+    """Detect language from detection samples or evidence and store in metadata."""
+    try:
+        text_basis = "\n".join([getattr(d, "sample_text", "") or "" for d in (getattr(f, "detections", []) or [])]).strip()
+        if not text_basis and getattr(f, "evidence", None):
+            try:
+                text_basis = (f.evidence[0].snippet or "").strip()
+            except Exception:
+                text_basis = ""
+        lang = detect_primary_language(text_basis)
+        if lang:
+            if f.metadata is None:
+                f.metadata = {}
+            f.metadata["language"] = lang
+    except Exception:
+        pass
 
 @click.group(help="ghostlight scanning CLI")
 @click.version_option(__version__, prog_name="ghostlight")
@@ -398,6 +421,7 @@ def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_fil
                     fh.write("[\n")
                     first = True
                     for f in impl.scan(target, config):
+                        _enrich_language_metadata(f)
                         obj = serialize_finding(f)
                         line = json.dumps(obj, ensure_ascii=False, indent=2)
                         if not first:
@@ -419,6 +443,7 @@ def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_fil
                 with open(output, "w", encoding="utf-8") as fh:
                     fh.write("\n".join(header_lines) + "\n")
                     for f in impl.scan(target, config):
+                        _enrich_language_metadata(f)
                         classes = ", ".join(f.classifications)
                         dets = "; ".join(f"{d.bucket}:{d.pattern_name} x{len(d.matches)}" for d in f.detections)
                         risk = f"{f.risk_level or ''} ({f.risk_score if f.risk_score is not None else ''})"
@@ -435,6 +460,8 @@ def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_fil
 
     try:
         findings = impl.scan_list(target, config)
+        for f in findings:
+            _enrich_language_metadata(f)
     except Exception as e:
         findings = []
         console.print(f"[red]Scan error:[/red] {e}")

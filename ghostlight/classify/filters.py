@@ -5,6 +5,18 @@ import re
 from typing import List, Tuple
 import base64
 import json
+from typing import Optional
+
+# Optional dependencies for language/i18n
+try:
+    from langdetect import detect as _lang_detect  # type: ignore
+except Exception:  # pragma: no cover
+    _lang_detect = None  # type: ignore
+
+try:
+    import phonenumbers as _phonenumbers  # type: ignore
+except Exception:  # pragma: no cover
+    _phonenumbers = None  # type: ignore
 
 
 # MySQL system tables that commonly contain metadata, not real PII
@@ -171,6 +183,60 @@ def filter_phone_matches(matches: List[str], context: str) -> List[str]:
         filtered.append(match)
     
     return filtered
+
+
+def detect_primary_language(text: str) -> Optional[str]:
+    """Best-effort language detection using langdetect."""
+    if not text:
+        return None
+    if _lang_detect is None:
+        return None
+    try:
+        return _lang_detect(text)
+    except Exception:
+        return None
+
+
+def language_to_region(lang: Optional[str]) -> Optional[str]:
+    """Map language code to a default region for phone parsing (heuristic)."""
+    if not lang:
+        return None
+    mapping = {
+        "en": "US",
+        "hi": "IN",
+        "bn": "BD",
+        "fr": "FR",
+        "de": "DE",
+        "es": "ES",
+        "pt": "BR",
+        "it": "IT",
+        "nl": "NL",
+        "ru": "RU",
+        "ja": "JP",
+        "ko": "KR",
+        "zh": "CN",
+    }
+    return mapping.get(lang)
+
+
+def filter_phone_matches_i18n(matches: List[str], context: str) -> List[str]:
+    """Validate phones using libphonenumber with language-inferred region."""
+    if _phonenumbers is None:
+        return matches
+    region = language_to_region(detect_primary_language(context))
+    validated: List[str] = []
+    for m in matches:
+        try:
+            # Try parsing with inferred region if not explicitly international
+            if m.strip().startswith("+"):
+                num = _phonenumbers.parse(m, None)
+            else:
+                num = _phonenumbers.parse(m, region) if region else _phonenumbers.parse(m, None)
+            if _phonenumbers.is_valid_number(num):
+                validated.append(m)
+        except Exception:
+            continue
+    return validated
 
 
 def filter_ssn_matches(matches: List[str], context: str) -> List[str]:
@@ -392,7 +458,10 @@ def apply_context_filters(
         if pattern_name == "PII.Coordinates":
             filtered_matches = filter_coordinate_matches(matches, text)
         elif pattern_name == "PII.Phone":
+            # First remove obvious timestamps/ids, then validate with libphonenumber if available
             filtered_matches = filter_phone_matches(matches, text)
+            if filtered_matches:
+                filtered_matches = filter_phone_matches_i18n(filtered_matches, text)
         elif pattern_name == "PII.SSN":
             filtered_matches = filter_ssn_matches(matches, text)
         elif pattern_name == "PHI.NPI":
@@ -410,6 +479,20 @@ def apply_context_filters(
         elif pattern_name == "Secrets.AWS.SecretAccessKey":
             # Validate each match
             filtered_matches = [m for m in matches if validate_aws_secret_key(m, text)]
+        elif pattern_name in {"Secrets.Stripe.WebhookSecret"}:
+            # Stripe whsec_: fixed length and context keyword
+            filtered_matches = [m for m in matches if len(m) == len(m) and "stripe" in text.lower()]
+        elif pattern_name in {"Secrets.GitHub.AppToken", "Secrets.GitHub.PersonalTokenNew"}:
+            # Must appear near github context tokens
+            ctx = text.lower()
+            filtered_matches = [m for m in matches if any(k in ctx for k in ["github", "gh token", "gh auth", "gh api"]) ]
+        elif pattern_name in {"Secrets.Slack.AppToken", "Secrets.Slack.BotToken", "Secrets.Slack.UserToken", "Secrets.Slack.Webhook"}:
+            # Slack: ensure slack context present
+            filtered_matches = [m for m in matches if "slack" in text.lower()]
+        elif pattern_name in {"Secrets.AzureAD.ClientID"}:
+            # Azure AD GUID must be near known keywords
+            ctx = text.lower()
+            filtered_matches = [m for m in matches if any(k in ctx for k in ["azuread", "entra", "client id", "application (client) id", "tenant id"]) ]
         else:
             # Keep other patterns as-is
             filtered_matches = matches
