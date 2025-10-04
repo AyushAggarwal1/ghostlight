@@ -10,6 +10,7 @@ except Exception:  # pragma: no cover
 from ghostlight.classify.engine import classify_text_detailed, score_severity
 from ghostlight.classify.filters import apply_context_filters
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.utils.snippets import earliest_line_and_snippet
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.utils.logging import get_logger
 from .base import Scanner
@@ -60,24 +61,14 @@ class GCSScanner(Scanner):
             risk, risk_level = compute_risk(sens, expo)
 
             scanned += 1
-            # Earliest line across matches
-            def line_of(match_str: str) -> int:
-                idx = text.find(match_str)
-                if idx < 0:
-                    return 1
-                return text.count("\n", 0, idx) + 1
-            earliest_line = None
-            for (_b, _n, matches) in filtered:
-                for m in matches:
-                    ln = line_of(m)
-                    earliest_line = ln if earliest_line is None else min(earliest_line, ln)
+            earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
 
             yield Finding(
                 id=f"gcs:{bucket_name}/{blob.name}",
                 resource=bucket_name,
                 location=f"gs://{bucket_name}/{blob.name}:{earliest_line or 1}",
                 classifications=[f"{b}:{n}" for (b, n, _m) in filtered],
-                evidence=[Evidence(snippet=text[:200])],
+                evidence=[Evidence(snippet=snippet_line)],
                 severity=sev,
                 data_source="gcs",
                 profile=bucket_name,

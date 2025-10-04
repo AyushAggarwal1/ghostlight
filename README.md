@@ -22,6 +22,15 @@ Quick Commands
 | <img src="readmes/icons/mysql.svg" width="28" /> | MySQL | `ghostlight scan --scanner mysql --target "mysql://user:pass@host:3306/db"` |
 | <img src="readmes/icons/jira.svg" width="28" /> | Jira | `ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"` |
 | <img src="readmes/icons/confluence.svg" width="28" /> | Confluence | `ghostlight scan --scanner confluence --target "confluence://https://your-domain.atlassian.net/wiki:EMAIL:API_TOKEN:SPACEKEY"` |
+ 
+Architecture
+------------
+
+See the system architecture and data flow in `readmes/architecture.md`.
+
+Preview:
+
+<img src="readmes/diagrams/data_flow.svg" alt="Ghostlight data flow" width="100%" />
 ## Features
 
 ### Sensitive Data Detection

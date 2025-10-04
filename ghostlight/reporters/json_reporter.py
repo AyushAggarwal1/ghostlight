@@ -1,5 +1,6 @@
 import json
 from typing import List, Dict, Any
+import os
 
 from ghostlight.core.models import Finding
 
@@ -40,8 +41,18 @@ def serialize_finding(f: Finding) -> Dict[str, Any]:
         metadata.get("page_title")
         or metadata.get("table_name")
         or metadata.get("object_key")
+        or metadata.get("summary")
+        or metadata.get("issue_key")
+        or metadata.get("channel_name")
         or (f.file_path or "")
     )
+    # If still empty, extract basename from location (before :line)
+    if not title and f.location:
+        try:
+            core = (f.location or "").split(":", 1)[0]
+            title = os.path.basename(core.rstrip("/"))
+        except Exception:
+            title = ""
 
     # Prefer any known timestamp fields present in metadata
     last_updated = (

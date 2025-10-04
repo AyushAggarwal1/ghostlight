@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820">
+  <defs>
+    <style>
+      .box { fill:#ffffff; stroke:#1f2937; stroke-width:2; rx:8; ry:8; }
+      .title { font-family: Arial, Helvetica, sans-serif; font-size: 18px; fill:#111827; font-weight: bold; }
+      .label { font-family: Arial, Helvetica, sans-serif; font-size: 14px; fill:#111827; }
+      .arrow { stroke:#1f2937; stroke-width:2; fill:none; marker-end:url(#arrowhead); }
+      .muted { fill:#6b7280; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1f2937" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="600" y="40" text-anchor="middle" class="title">Ghostlight - Data Flow</text>
+
+  <!-- Row 1: Entry -->
+  <rect x="40" y="80" width="160" height="56" class="box" />
+  <text x="120" y="113" text-anchor="middle" class="label">User / CI</text>
+
+  <line x1="200" y1="108" x2="280" y2="108" class="arrow" />
+
+  <rect x="280" y="80" width="200" height="56" class="box" />
+  <text x="380" y="113" text-anchor="middle" class="label">ghostlight CLI</text>
+
+  <line x1="480" y1="108" x2="580" y2="108" class="arrow" />
+
+  <rect x="580" y="80" width="220" height="56" class="box" />
+  <text x="690" y="105" text-anchor="middle" class="label">Orchestrator</text>
+  <text x="690" y="123" text-anchor="middle" class="label muted">args, routing, progress</text>
+
+  <line x1="800" y1="108" x2="920" y2="108" class="arrow" />
+
+  <rect x="920" y="80" width="240" height="56" class="box" />
+  <text x="1040" y="101" text-anchor="middle" class="label">Scanner Selector</text>
+  <text x="1040" y="121" text-anchor="middle" class="label muted">fs | git | s3 | gcs | azure | slack | jira | confluence | vm | db</text>
+
+  <!-- Sources row -->
+  <text x="110" y="180" class="label muted">Sources</text>
+  <rect x="40" y="200" width="160" height="50" class="box" />
+  <text x="120" y="230" text-anchor="middle" class="label">Filesystem</text>
+
+  <rect x="220" y="200" width="160" height="50" class="box" />
+  <text x="300" y="230" text-anchor="middle" class="label">Git</text>
+
+  <rect x="400" y="200" width="160" height="50" class="box" />
+  <text x="480" y="230" text-anchor="middle" class="label">S3 / GCS / Azure</text>
+
+  <rect x="580" y="200" width="160" height="50" class="box" />
+  <text x="660" y="227" text-anchor="middle" class="label">Slack</text>
+
+  <rect x="760" y="200" width="160" height="50" class="box" />
+  <text x="840" y="230" text-anchor="middle" class="label">Jira</text>
+
+  <rect x="940" y="200" width="160" height="50" class="box" />
+  <text x="1020" y="230" text-anchor="middle" class="label">Confluence</text>
+
+  <rect x="40" y="260" width="160" height="50" class="box" />
+  <text x="120" y="290" text-anchor="middle" class="label">VM over SSH</text>
+
+  <rect x="220" y="260" width="520" height="50" class="box" />
+  <text x="480" y="285" text-anchor="middle" class="label">
+    <tspan x="480" y="285">Databases</tspan>
+    <tspan x="480" y="303" class="label muted">RDS · Postgres · MySQL · Mongo · Redis · Firebase · CouchDB</tspan>
+  </text>
+
+  <!-- Arrows to preprocess -->
+  <line x1="120" y1="250" x2="120" y2="350" class="arrow" />
+  <line x1="300" y1="250" x2="300" y2="350" class="arrow" />
+  <line x1="480" y1="250" x2="480" y2="350" class="arrow" />
+  <line x1="660" y1="250" x2="660" y2="350" class="arrow" />
+  <line x1="840" y1="250" x2="840" y2="350" class="arrow" />
+  <line x1="1020" y1="250" x2="1020" y2="350" class="arrow" />
+  <line x1="120" y1="310" x2="120" y2="350" class="arrow" />
+  <line x1="480" y1="310" x2="480" y2="350" class="arrow" />
+
+  <!-- Preprocess / Chunk / Classify -->
+  <rect x="60" y="350" width="320" height="60" class="box" />
+  <text x="220" y="377" text-anchor="middle" class="label">Preprocess</text>
+  <text x="220" y="395" text-anchor="middle" class="label muted">decode, normalize, extract, OCR (opt)</text>
+
+  <line x1="380" y1="380" x2="460" y2="380" class="arrow" />
+
+  <rect x="460" y="350" width="220" height="60" class="box" />
+  <text x="570" y="378" text-anchor="middle" class="label">Chunker</text>
+  <text x="570" y="396" text-anchor="middle" class="label muted">split into text chunks</text>
+
+  <line x1="680" y1="380" x2="780" y2="380" class="arrow" />
+
+  <rect x="780" y="350" width="360" height="60" class="box" />
+  <text x="960" y="377" text-anchor="middle" class="label">Classification Engine</text>
+  <text x="960" y="395" text-anchor="middle" class="label muted">regex rules (GDPR/HIPAA/PCI/Secrets)</text>
+
+  <!-- Filters / Snippets / Enrichment -->
+  <line x1="960" y1="410" x2="960" y2="460" class="arrow" />
+
+  <rect x="780" y="460" width="360" height="60" class="box" />
+  <text x="960" y="488" text-anchor="middle" class="label">Context Filters &amp; Validators</text>
+  <text x="960" y="506" text-anchor="middle" class="label muted">checksums, i18n phones, structure</text>
+
+  <line x1="960" y1="520" x2="960" y2="570" class="arrow" />
+
+  <rect x="780" y="570" width="360" height="60" class="box" />
+  <text x="960" y="597" text-anchor="middle" class="label">Exact Line Snippets</text>
+  <text x="960" y="615" text-anchor="middle" class="label muted">evidence + line numbers</text>
+
+  <line x1="960" y1="630" x2="960" y2="680" class="arrow" />
+
+  <rect x="780" y="680" width="360" height="60" class="box" />
+  <text x="960" y="708" text-anchor="middle" class="label">Enrichment &amp; Risk</text>
+  <text x="960" y="726" text-anchor="middle" class="label muted">language, metadata, risk score</text>
+
+  <!-- Reporters -->
+  <line x1="780" y1="710" x2="700" y2="710" class="arrow" />
+  <rect x="520" y="680" width="160" height="60" class="box" />
+  <text x="600" y="707" text-anchor="middle" class="label">Reporters</text>
+  <text x="600" y="725" text-anchor="middle" class="label muted">JSON | Markdown | Table</text>
+
+  <!-- Outputs -->
+  <line x1="520" y1="710" x2="420" y2="710" class="arrow" />
+  <rect x="300" y="680" width="120" height="60" class="box" />
+  <text x="360" y="707" text-anchor="middle" class="label">results.json</text>
+
+  <line x1="520" y1="710" x2="520" y2="770" class="arrow" />
+  <rect x="440" y="770" width="160" height="40" class="box" />
+  <text x="520" y="795" text-anchor="middle" class="label">report.md</text>
+
+  <line x1="520" y1="710" x2="520" y2="650" class="arrow" />
+  <rect x="440" y="610" width="160" height="40" class="box" />
+  <text x="520" y="636" text-anchor="middle" class="label">terminal table</text>
+
+  <!-- Optional AI FP filter side branch -->
+  <rect x="680" y="460" width="90" height="60" class="box" />
+  <text x="725" y="488" text-anchor="middle" class="label">LLM FP</text>
+  <text x="725" y="506" text-anchor="middle" class="label muted">optional</text>
+  <line x1="780" y1="490" x2="770" y2="490" class="arrow" />
+  <line x1="770" y1="520" x2="780" y2="630" class="arrow" />
+
+</svg>
+

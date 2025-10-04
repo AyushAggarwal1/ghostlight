@@ -13,10 +13,11 @@ except Exception:  # pragma: no cover
 	requests = None
 
 from ghostlight.classify.engine import classify_text_detailed, score_severity
-from ghostlight.classify.filters import apply_context_filters
+from ghostlight.classify.filters import apply_context_filters, detect_primary_language
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.utils.logging import get_logger
+from ghostlight.utils.text_extract import extract_text_from_file
 from .base import Scanner
 
 logger = get_logger(__name__)
@@ -209,11 +210,11 @@ class ConfluenceScanner(Scanner):
 				batch_ids.append(page_id)
 				# Log document name being scanned
 				logger.info(f"Scanning Confluence page: {title or page_id} (id={page_id})")
-				# Fetch page detail with body.storage
+				# Fetch page detail with body.storage and comments/attachments metadata
 				try:
 					detail = session.get(
 						f"{api_base}/rest/api/content/{page_id}",
-						params={"expand": "body.storage,version,space,history.lastUpdated"},
+						params={"expand": "body.storage,version,space,history.lastUpdated,metadata.labels"},
 						timeout=20,
 					)
 					detail.raise_for_status()
@@ -223,8 +224,42 @@ class ConfluenceScanner(Scanner):
 					continue
 
 				storage_html = (((doc.get("body") or {}).get("storage") or {}).get("value") or "")
+				text_parts: List[str] = []
 				text_full = _strip_html(storage_html)
-				text = text_full[: config.sample_bytes]
+				if text_full:
+					text_parts.append(text_full)
+				# Comments (1st page)
+				try:
+					c_resp = session.get(
+						f"{api_base}/rest/api/content/{page_id}/child/comment",
+						params={"expand": "body.storage"},
+						timeout=20,
+					)
+					if c_resp.ok:
+						cdata = c_resp.json()
+						for c in (cdata.get("results") or [])[:50]:
+							c_html = (((c.get("body") or {}).get("storage") or {}).get("value") or "")
+							c_text = _strip_html(c_html)
+							if c_text:
+								text_parts.append(c_text)
+				except Exception:
+					pass
+				# Attachments (names into context; content OCR not downloaded here)
+				try:
+					a_resp = session.get(
+						f"{api_base}/rest/api/content/{page_id}/child/attachment",
+						params={"limit": 50},
+						timeout=20,
+					)
+					if a_resp.ok:
+						adata = a_resp.json()
+						att_names = [str(a.get("title") or "") for a in (adata.get("results") or [])[:50]]
+						if att_names:
+							text_parts.append("\n".join(att_names))
+				except Exception:
+					pass
+
+				text = ("\n".join(text_parts)).strip()[: config.sample_bytes]
 				if not text.strip():
 					continue
 
@@ -256,6 +291,9 @@ class ConfluenceScanner(Scanner):
 					"text_length": str(len(text)),
 					"exact_matches_count": str(len(exact_matches)),
 				}
+				lang = detect_primary_language(text)
+				if lang:
+					metadata["language"] = lang
 
 				detections = [
 					Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])

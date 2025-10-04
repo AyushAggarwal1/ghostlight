@@ -12,6 +12,7 @@ except Exception:  # pragma: no cover
 from ghostlight.classify.engine import classify_text, classify_text_detailed, score_severity
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.utils.snippets import earliest_line_and_snippet
 from ghostlight.utils.logging import get_logger
 from .base import Scanner
 
@@ -169,6 +170,7 @@ class VMScanner(Scanner):
                 expo, expo_factors = compute_exposure_factor("vm", {"host": host})
                 risk, risk_level = compute_risk(sens, expo)
                 
+                earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
                 logger.info(f"Found {len(detections)} detection(s) in {full_path}")
                 
                 yield Finding(
@@ -176,7 +178,7 @@ class VMScanner(Scanner):
                     resource=host,
                     location=f"ssh://{user}@{host}{full_path}:{earliest_line or 1}",
                     classifications=classifications,
-                    evidence=[Evidence(snippet=text[:200])],
+                    evidence=[Evidence(snippet=snippet_line)],
                     severity=sev,
                     data_source="vm",
                     profile=f"{user}@{host}",

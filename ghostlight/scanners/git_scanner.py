@@ -8,9 +8,11 @@ import re
 
 from git import Repo, InvalidGitRepositoryError, NoSuchPathError
 
-from ghostlight.classify.engine import classify_text, classify_text_detailed, score_severity
+from ghostlight.classify.engine import classify_text_detailed, score_severity
+from ghostlight.classify.filters import apply_context_filters
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
+from ghostlight.utils.snippets import earliest_line_and_snippet
 from ghostlight.utils.logging import get_logger
 from .git_auth import build_authenticated_url, get_git_credentials, get_auth_help_message
 from .base import Scanner
@@ -72,36 +74,16 @@ class GitScanner(Scanner):
             except Exception:
                 continue
 
-            labels = classify_text(text)
             detailed = classify_text_detailed(text)
-            # Compute earliest line number across detected matches
-            def line_of(match_str: str) -> int:
-                idx = text.find(match_str)
-                if idx < 0:
-                    return 1
-                return text.count("\n", 0, idx) + 1
-
-            earliest_line = None
-            for (_b, _n, matches) in detailed:
-                for m in matches:
-                    ln = line_of(m)
-                    earliest_line = ln if earliest_line is None else min(earliest_line, ln)
-
-            classifications = [
-                f"GDPR:{l}" for l in labels.get("GDPR", [])
-            ] + [
-                f"HIPAA:{l}" for l in labels.get("HIPAA", [])
-            ] + [
-                f"PCI:{l}" for l in labels.get("PCI", [])
-            ] + [
-                f"SECRETS:{l}" for l in labels.get("SECRETS", [])
-            ]
+            # Apply context-aware filters (entropy, structure) and build classes/detections from filtered
+            filtered = apply_context_filters(detailed, text, min_entropy=config.min_entropy)
+            classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             if not classifications:
                 continue
 
             detections = [
                 Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])
-                for (b, name, matches) in detailed
+                for (b, name, matches) in filtered
             ]
             # Strict mode guard
             if config.strict and not (len(detections) >= 2 or sum(len(d.matches) for d in detections) >= 2):
@@ -114,12 +96,13 @@ class GitScanner(Scanner):
             scanned_count += 1
             logger.info(f"Found {len(detections)} detection(s) in {blob.path}")
             
+            earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
             yield Finding(
                 id=f"git:{blob.hexsha[:8]}/{blob.path}",
                 resource=root,
                 location=f"{path}:{earliest_line or 1}",
                 classifications=classifications,
-                evidence=[Evidence(snippet=text[:200])],
+                evidence=[Evidence(snippet=snippet_line)],
                 severity=sev,
                 data_source="git",
                 profile=root,
