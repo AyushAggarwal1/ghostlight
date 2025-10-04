@@ -8,20 +8,20 @@ Quick Commands
 
 | Icons | Tool | Command |
 |---|---|---|
-| <img src="assets/icons/fs.svg" width="28" /> | Filesystem | `ghostlight scan --scanner fs --target /path/to/dir` |
-| <img src="assets/icons/git.svg" width="28" /> | Git | `ghostlight scan --scanner git --target https://github.com/user/repo.git` |
-| <img src="assets/icons/s3.svg" width="28" /> | Amazon S3 | `ghostlight scan --scanner s3 --target my-bucket/prefix` |
-| <img src="assets/icons/gcs.svg" width="28" /> | Google Cloud Storage | `ghostlight scan --scanner gcs --target my-bucket` |
-| <img src="assets/icons/azure.svg" width="28" /> | Azure Blob | `ghostlight scan --scanner azure --target "conn/container/prefix"` |
-| <img src="assets/icons/gdrive.svg" width="28" /> | Google Drive | `ghostlight scan --scanner gdrive --target default` |
-| <img src="assets/icons/gdrive_workspace.svg" width="28" /> | GDrive Workspace | `ghostlight scan --scanner gdrive_workspace --target /path/to/delegated.json` |
-| <img src="assets/icons/slack.svg" width="28" /> | Slack | `ghostlight scan --scanner slack --target "xoxb-...:C12345"` |
-| <img src="assets/icons/vm.svg" width="28" /> | VM over SSH | `ghostlight scan --scanner vm --target "user@host:/etc,/var/log"` |
-| <img src="assets/icons/rds.svg" width="28" /> | AWS RDS | `ghostlight scan --scanner rds --target "rds://my-instance-id"` |
-| <img src="assets/icons/postgres.svg" width="28" /> | PostgreSQL | `ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require"` |
-| <img src="assets/icons/mysql.svg" width="28" /> | MySQL | `ghostlight scan --scanner mysql --target "mysql://user:pass@host:3306/db"` |
-| <img src="assets/icons/jira.svg" width="28" /> | Jira | `ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"` |
-| <img src="assets/icons/confluence.svg" width="28" /> | Confluence | `ghostlight scan --scanner confluence --target "confluence://https://your-domain.atlassian.net/wiki:EMAIL:API_TOKEN:SPACEKEY"` |
+| <img src="readmes/icons/fs.svg" width="28" /> | Filesystem | `ghostlight scan --scanner fs --target /path/to/dir` |
+| <img src="readmes/icons/git.svg" width="28" /> | Git | `ghostlight scan --scanner git --target https://github.com/user/repo.git` |
+| <img src="readmes/icons/s3.svg" width="28" /> | Amazon S3 | `ghostlight scan --scanner s3 --target my-bucket/prefix` |
+| <img src="readmes/icons/gcs.svg" width="28" /> | Google Cloud Storage | `ghostlight scan --scanner gcs --target my-bucket` |
+| <img src="readmes/icons/azure.svg" width="28" /> | Azure Blob | `ghostlight scan --scanner azure --target "conn/container/prefix"` |
+| <img src="readmes/icons/gdrive.svg" width="28" /> | Google Drive | `ghostlight scan --scanner gdrive --target default` |
+| <img src="readmes/icons/gdrive_workspace.svg" width="28" /> | GDrive Workspace | `ghostlight scan --scanner gdrive_workspace --target /path/to/delegated.json` |
+| <img src="readmes/icons/slack.svg" width="28" /> | Slack | `ghostlight scan --scanner slack --target "xoxb-...:C12345"` |
+| <img src="readmes/icons/vm.svg" width="28" /> | VM over SSH | `ghostlight scan --scanner vm --target "user@host:/etc,/var/log"` |
+| <img src="readmes/icons/rds.svg" width="28" /> | AWS RDS | `ghostlight scan --scanner rds --target "rds://my-instance-id"` |
+| <img src="readmes/icons/postgres.svg" width="28" /> | PostgreSQL | `ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require"` |
+| <img src="readmes/icons/mysql.svg" width="28" /> | MySQL | `ghostlight scan --scanner mysql --target "mysql://user:pass@host:3306/db"` |
+| <img src="readmes/icons/jira.svg" width="28" /> | Jira | `ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"` |
+| <img src="readmes/icons/confluence.svg" width="28" /> | Confluence | `ghostlight scan --scanner confluence --target "confluence://https://your-domain.atlassian.net/wiki:EMAIL:API_TOKEN:SPACEKEY"` |
 ## Features
 
 ### Sensitive Data Detection
@@ -143,28 +143,28 @@ Supported Scanners
 ------------------
 
 Core
-- <img src="assets/icons/fs.svg" width="20" /> Filesystem (`fs`): `ghostlight scan --scanner fs --target /path/to/dir`
-- <img src="assets/icons/git.svg" width="20" /> Git (`git`): `ghostlight scan --scanner git --target https://github.com/user/repo.git`
+- <img src="readmes/icons/fs.svg" width="20" /> Filesystem (`fs`): `ghostlight scan --scanner fs --target /path/to/dir`
+- <img src="readmes/icons/git.svg" width="20" /> Git (`git`): `ghostlight scan --scanner git --target https://github.com/user/repo.git`
 
 Cloud Storage
-- <img src="assets/icons/s3.svg" width="20" /> Amazon S3 (`s3`): `ghostlight scan --scanner s3 --target my-bucket/prefix`
-- <img src="assets/icons/gcs.svg" width="20" /> Google Cloud Storage (`gcs`): `ghostlight scan --scanner gcs --target my-bucket`
-- <img src="assets/icons/azure.svg" width="20" /> Azure Blob (`azure`): `ghostlight scan --scanner azure --target "<conn>|container/prefix"`
+- <img src="readmes/icons/s3.svg" width="20" /> Amazon S3 (`s3`): `ghostlight scan --scanner s3 --target my-bucket/prefix`
+- <img src="readmes/icons/gcs.svg" width="20" /> Google Cloud Storage (`gcs`): `ghostlight scan --scanner gcs --target my-bucket`
+- <img src="readmes/icons/azure.svg" width="20" /> Azure Blob (`azure`): `ghostlight scan --scanner azure --target "<conn>|container/prefix"`
 
 SaaS
-- <img src="assets/icons/gdrive.svg" width="20" /> Google Drive (`gdrive`): `ghostlight scan --scanner gdrive --target default`
-- <img src="assets/icons/gdrive_workspace.svg" width="20" /> GDrive Workspace (`gdrive_workspace`): `ghostlight scan --scanner gdrive_workspace --target /path/to/delegated.json`
-- <img src="assets/icons/slack.svg" width="20" /> Slack (`slack`): `ghostlight scan --scanner slack --target "xoxb-...:C12345"`
-- <img src="assets/icons/jira.svg" width="20" /> Jira (`jira`): `ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"`
-- <img src="assets/icons/confluence.svg" width="20" /> Confluence (`confluence`): `ghostlight scan --scanner confluence --target "confluence://https://your-domain.atlassian.net/wiki:EMAIL:API_TOKEN:SPACEKEY"`
+- <img src="readmes/icons/gdrive.svg" width="20" /> Google Drive (`gdrive`): `ghostlight scan --scanner gdrive --target default`
+- <img src="readmes/icons/gdrive_workspace.svg" width="20" /> GDrive Workspace (`gdrive_workspace`): `ghostlight scan --scanner gdrive_workspace --target /path/to/delegated.json`
+- <img src="readmes/icons/slack.svg" width="20" /> Slack (`slack`): `ghostlight scan --scanner slack --target "xoxb-...:C12345"`
+- <img src="readmes/icons/jira.svg" width="20" /> Jira (`jira`): `ghostlight scan --scanner jira --target "jira://https://your-domain.atlassian.net:EMAIL:API_TOKEN:PROJECT"`
+- <img src="readmes/icons/confluence.svg" width="20" /> Confluence (`confluence`): `ghostlight scan --scanner confluence --target "confluence://https://your-domain.atlassian.net/wiki:EMAIL:API_TOKEN:SPACEKEY"`
 
 Compute
-- <img src="assets/icons/vm.svg" width="20" /> VM over SSH (`vm`): `ghostlight scan --scanner vm --target "user@host:/etc,/var/log"`
+- <img src="readmes/icons/vm.svg" width="20" /> VM over SSH (`vm`): `ghostlight scan --scanner vm --target "user@host:/etc,/var/log"`
 
 Databases
-- <img src="assets/icons/rds.svg" width="20" /> AWS RDS (`rds`): `ghostlight scan --scanner rds --target "rds://my-instance-id"`
-- <img src="assets/icons/postgres.svg" width="20" /> PostgreSQL (`postgres`): `ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require"`
-- <img src="assets/icons/mysql.svg" width="20" /> MySQL (`mysql`): `ghostlight scan --scanner mysql --target "mysql://user:pass@host:3306/db"`
+- <img src="readmes/icons/rds.svg" width="20" /> AWS RDS (`rds`): `ghostlight scan --scanner rds --target "rds://my-instance-id"`
+- <img src="readmes/icons/postgres.svg" width="20" /> PostgreSQL (`postgres`): `ghostlight scan --scanner postgres --target "postgresql://user:pass@host:5432/db?sslmode=require"`
+- <img src="readmes/icons/mysql.svg" width="20" /> MySQL (`mysql`): `ghostlight scan --scanner mysql --target "mysql://user:pass@host:3306/db"`
 
 Tips
 - Use `--list-tables` (DB scans) to print discovered tables.
