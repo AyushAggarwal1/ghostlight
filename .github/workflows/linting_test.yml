@@ -1,4 +1,4 @@
-name: CI
+name: Run Linters and Test
 
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
         run: |
           ruff check ghostlight || true
 
-      - name: Run tests
+      - name: Run Tests
         run: |
           pytest -q
 
