@@ -424,9 +424,11 @@ def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_fil
                         _enrich_language_metadata(f)
                         obj = serialize_finding(f)
                         line = json.dumps(obj, ensure_ascii=False, indent=2)
+                        # Indent each object by two spaces so array elements are properly nested
+                        indented = "  " + line.replace("\n", "\n  ")
                         if not first:
                             fh.write(",\n")
-                        fh.write(line)
+                        fh.write(indented)
                         fh.flush()
                         first = False
                         num_written += 1
