@@ -235,6 +235,17 @@ Tips
 - Tune `--min-entropy` (default 3.5) for secrets; raise to reduce noise.
 - Increase `--sample-bytes` for deeper content sampling.
 
+AI False-Positive Reduction (optional)
+--------------------------------------
+Enable AI-based filtering by setting `GHOSTLIGHT_AI_FILTER`:
+
+- Values: `auto` (default), `ollama`, `openai`, `anthropic`, `off`
+- One-shot example:
+  ```bash
+  GHOSTLIGHT_AI_FILTER=auto ghostlight scan --scanner fs --target /path/to/dir --format json --output results.json
+  ```
+- For local free AI, install Ollama and pull a model (e.g., `ollama pull llama3.2`).
+
 ### Confluence Scanner
 
 The Confluence scanner searches pages (and optionally blog posts) using CQL and classifies content for PII/PHI/PCI/Secrets.

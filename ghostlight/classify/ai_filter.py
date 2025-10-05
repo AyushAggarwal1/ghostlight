@@ -174,6 +174,14 @@ def ai_classify_detection(
     
     # Determine which AI to use
     ai_provider = None
+    # Log invocation attempt (do not log raw matched value)
+    try:
+        logger.info(
+            f"AI filter invoked: pattern={pattern_name}, mode={use_ai}, table={table_name}, engine={db_engine}, sample_len={len(sample_text or '')}"
+        )
+    except Exception:
+        logger.debug("AI filter invoked (summary log failed)")
+
     if use_ai == "auto":
         if is_ollama_available():
             ai_provider = "ollama"
@@ -188,6 +196,9 @@ def ai_classify_detection(
         logger.debug("No AI provider available, using rule-based filtering only")
         return True, "No AI available"
     
+    # Provider decided, log provider
+    logger.info(f"AI provider selected: {ai_provider}")
+
     # Create prompt
     prompt = create_analysis_prompt(
         pattern_name, matched_value, sample_text, 

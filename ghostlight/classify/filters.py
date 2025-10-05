@@ -123,6 +123,10 @@ def filter_coordinate_matches(matches: List[str], context: str) -> List[str]:
     False positives: "(2025, 9)" from datetime, "(25, 9)" from tuple
     """
     filtered = []
+    ctx_lower = (context or "").lower()
+    # Drop CSS/visual contexts entirely
+    if any(tok in ctx_lower for tok in [" rgb(", " rgba(", "--foreground-rgb", "--background-rgb", "box-shadow", "boxshadow"]):
+        return []
     
     for match in matches:
         # Skip if it's part of a datetime string
@@ -273,6 +277,10 @@ def filter_npi_matches(matches: List[str], context: str) -> List[str]:
     But many Unix timestamps are also 10 digits
     """
     filtered = []
+    ctx = (context or "").lower()
+    medical_context = any(t in ctx for t in [
+        "npi", "national provider", "provider", "taxonomy", "nppes", "cms", "medicare"
+    ])
     
     for match in matches:
         # Skip if it's a Unix timestamp
@@ -287,10 +295,51 @@ def filter_npi_matches(matches: List[str], context: str) -> List[str]:
         if match[0] not in ['1', '2']:
             continue
         
+        # Require medical/provider context
+        if not medical_context:
+            continue
+        
         filtered.append(match)
     
     return filtered
 
+
+def filter_medical_record_matches(matches: List[str], context: str) -> List[str]:
+    """
+    Reduce false positives for PHI.MedicalRecord by requiring medical context
+    and filtering out common e-commerce/product contexts where words like
+    "condition" frequently appear.
+    """
+    if not matches:
+        return []
+    ctx = (context or "").lower()
+    medical_context_tokens = {
+        "patient", "diagnosis", "diagnosed", "physician", "doctor", "md",
+        "hospital", "clinic", "treatment", "therapy", "prescription", "medication",
+        "medical", "surgery", "symptom", "allergy", "lab", "laboratory",
+        "imaging", "radiology", "vital", "blood pressure", "bp", "heart rate",
+        "nurse", "discharge", "admission", "pharmacy"
+    }
+    ecommerce_context_tokens = {
+        "book", "seller", "price", "listing", "item", "product", "cart",
+        "order", "shipping", "inventory", "condition, images, price"
+    }
+    has_medical = any(tok in ctx for tok in medical_context_tokens)
+    has_ecommerce = any(tok in ctx for tok in ecommerce_context_tokens)
+
+    filtered: List[str] = []
+    for m in matches:
+        # Keep only if there's medical context; drop if it's clearly e-commerce without medical context
+        if has_medical:
+            filtered.append(m)
+        elif has_ecommerce:
+            continue
+        else:
+            # Neutral contexts: keep conservative and drop single ambiguous occurrences
+            if any(k in m.lower() for k in ("diagnosis", "prescription", "medication", "patient")):
+                filtered.append(m)
+            # Plain "condition" without medical context is dropped
+    return filtered
 
 def luhn_valid(number: str) -> bool:
     """Luhn checksum for credit cards."""
@@ -387,7 +436,13 @@ def filter_email_matches(matches: List[str]) -> List[str]:
         addr = clean_slack_mailto(m)
         # Drop well-known placeholder domains
         domain = addr.split("@")[-1].lower() if "@" in addr else ""
-        if domain in {"example.com", "test.com", "example.org", "example.net"}:
+        if domain in {"example.com", "test.com", "example.org", "example.net", "dotenvx.com", "prisma.io"}:
+            continue
+        # Drop a common placeholder address
+        if addr.lower() == "user@email.com":
+            continue
+        # Drop bracketed placeholders
+        if any(tok in addr for tok in ["<", ">", "{", "}", "["]):
             continue
         cleaned.append(addr)
     return cleaned
@@ -406,6 +461,15 @@ def validate_aws_secret_key(match: str, context: str) -> bool:
     if len(match) != 40:
         return False
     
+    # Reject pure hex (likely git shas or hashes)
+    if all(c in "0123456789abcdefABCDEF" for c in match):
+        return False
+
+    # Restrict to base64-like char set commonly seen in AWS secrets
+    import re as _re
+    if not _re.fullmatch(r"[A-Za-z0-9/+=]{40}", match):
+        return False
+
     # Check if it's in a relevant context
     context_lower = context.lower()
     aws_keywords = [
@@ -422,6 +486,89 @@ def validate_aws_secret_key(match: str, context: str) -> bool:
     
     return has_aws_context
 
+
+def filter_ipv4_matches(matches: List[str], context: str) -> List[str]:
+    """Drop common non-IP contexts (SVG paths, CSS, browser versions) and invalid octets."""
+    filtered: List[str] = []
+    ctx = (context or "").lower()
+    # If the whole context looks like SVG/CSS markup, drop all
+    svg_css_tokens = ["<svg", "svg ", "viewbox", "path ", "stroke", "fill", "strokelinecap", "strokelinejoin", "box-shadow", "rgba("]
+    if any(tok in ctx for tok in svg_css_tokens):
+        return []
+    ua_tokens = ["mozilla/", "chrome/", "safari/", "applewebkit/"]
+    for m in matches:
+        # Skip if near typical UA/version contexts
+        if any(tok in ctx for tok in ua_tokens):
+            continue
+        parts = m.split('.')
+        if len(parts) != 4:
+            continue
+        valid = True
+        for p in parts:
+            if not p.isdigit():
+                valid = False
+                break
+            # Reject leading zeros (e.g., 03, 062) to avoid float-like strings
+            if len(p) > 1 and p.startswith('0'):
+                valid = False
+                break
+            num = int(p)
+            if not (0 <= num <= 255):
+                valid = False
+                break
+        if valid:
+            # Drop common reserved/placeholder addresses
+            if m in {"0.0.0.0", "127.0.0.1", "255.255.255.255"}:
+                continue
+            filtered.append(m)
+    return filtered
+
+
+def filter_pan_matches(matches: List[str], context: str) -> List[str]:
+    """Enforce PAN casing and require relevant tax/GST context to reduce FPs in code/binaries."""
+    filtered: List[str] = []
+    ctx = (context or "").lower()
+    has_tax_ctx = any(tok in ctx for tok in [" pan", "gst", "gstin", "income tax", "itd", "nsdl", "tin", "kyc", "aadhaar"])  # note leading space for ' pan'
+    for m in matches:
+        # Drop well-known placeholder PAN
+        if m == "AAAAA0000A":
+            continue
+        # Strict uppercase PAN format ABCDE1234F
+        if not (len(m) == 10 and m[:5].isalpha() and m[:5].upper() == m[:5] and m[5:9].isdigit() and m[9].isalpha() and m[9].upper() == m[9]):
+            continue
+        # Require related context
+        if not has_tax_ctx:
+            continue
+        filtered.append(m)
+    return filtered
+
+
+def filter_dob_matches(matches: List[str], context: str) -> List[str]:
+    """Drop dates in sitemap/metadata contexts that are unlikely to be DOBs."""
+    ctx = (context or "").lower()
+    if any(tok in ctx for tok in ["<urlset", "</urlset", "<lastmod>", "</lastmod>", "sitemap", "xml version"]):
+        return []
+    return matches
+
+
+def filter_basic_auth_url_matches(matches: List[str], context: str) -> List[str]:
+    """Drop obvious placeholder credentials in examples."""
+    filtered: List[str] = []
+    placeholders = [
+        "user:pass@", "username:password@", "username:pass@", "user:password@",
+        "host:port", "host:5432", "database", "${", "<username>", "<password>", "<host>", "<db>"
+    ]
+    for m in matches:
+        lower = m.lower()
+        if any(ph in lower for ph in placeholders):
+            continue
+        filtered.append(m)
+    return filtered
+
+
+def filter_db_connection_matches(matches: List[str], context: str) -> List[str]:
+    """Drop template DB connection strings with obvious placeholders (e.g., postgres:password@db)."""
+    return filter_basic_auth_url_matches(matches, context)
 
 def apply_context_filters(
     detections: List[Tuple[str, str, List[str]]],
@@ -454,9 +601,19 @@ def apply_context_filters(
     filtered_detections = []
     
     for bucket, pattern_name, matches in detections:
+        # Drop most PII from vendor-generated Prisma runtimes/builds to reduce noise
+        if pattern_name in {"PII.IPv4", "PII.Coordinates", "PII.DOB", "PII.Email", "PII.SSN"}:
+            lower = text.lower()
+            if "this is code generated by prisma" in lower or \
+               ("src/generated/prisma" in lower) or \
+               ("prisma" in lower and ("runtime" in lower or "query_engine" in lower)):
+                # Keep only Secrets; skip this PII pattern
+                continue
         # Apply pattern-specific filters
         if pattern_name == "PII.Coordinates":
             filtered_matches = filter_coordinate_matches(matches, text)
+        elif pattern_name == "PII.IPv4":
+            filtered_matches = filter_ipv4_matches(matches, text)
         elif pattern_name == "PII.Phone":
             # First remove obvious timestamps/ids, then validate with libphonenumber if available
             filtered_matches = filter_phone_matches(matches, text)
@@ -466,19 +623,29 @@ def apply_context_filters(
             filtered_matches = filter_ssn_matches(matches, text)
         elif pattern_name == "PHI.NPI":
             filtered_matches = filter_npi_matches(matches, text)
+        elif pattern_name == "PHI.MedicalRecord":
+            filtered_matches = filter_medical_record_matches(matches, text)
         elif pattern_name == "PCI.CreditCard":
             filtered_matches = filter_credit_card_matches(matches, text)
         elif pattern_name == "PII.IBAN":
             filtered_matches = filter_iban_matches(matches)
+        elif pattern_name == "PII.DOB":
+            filtered_matches = filter_dob_matches(matches, text)
         elif pattern_name == "IP.JWT":
             filtered_matches = [m for m in matches if is_valid_jwt(m)]
         elif pattern_name == "Secrets.Generic.BearerToken":
             filtered_matches = filter_bearer_tokens(matches, min_entropy=min_entropy)
         elif pattern_name == "PII.Email":
             filtered_matches = filter_email_matches(matches)
+        elif pattern_name == "PII.PAN":
+            filtered_matches = filter_pan_matches(matches, text)
         elif pattern_name == "Secrets.AWS.SecretAccessKey":
             # Validate each match
             filtered_matches = [m for m in matches if validate_aws_secret_key(m, text)]
+        elif pattern_name == "Secrets.BasicAuth.URL":
+            filtered_matches = filter_basic_auth_url_matches(matches, text)
+        elif pattern_name == "Secrets.Database.ConnectionString":
+            filtered_matches = filter_db_connection_matches(matches, text)
         elif pattern_name in {"Secrets.Stripe.WebhookSecret"}:
             # Stripe whsec_: fixed length and context keyword
             filtered_matches = [m for m in matches if len(m) == len(m) and "stripe" in text.lower()]

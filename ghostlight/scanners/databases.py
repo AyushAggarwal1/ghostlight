@@ -28,6 +28,7 @@ except Exception:  # pragma: no cover
 
 from ghostlight.classify.engine import classify_text, classify_text_detailed
 from ghostlight.classify.filters import apply_context_filters
+from ghostlight.classify.ai_filter import ai_classify_detection
 from ghostlight.core.models import Evidence, Finding, ScanConfig
 from ghostlight.utils.snippets import earliest_line_and_snippet
 from .base import Scanner
@@ -139,6 +140,25 @@ class PostgresScanner(Scanner):
             sample = "\n".join(str(r) for r in rows)[: config.sample_bytes]
             detailed = classify_text_detailed(sample)
             filtered = apply_context_filters(detailed, sample, table_name=f"{schema}.{table}", db_engine="postgres")
+            # Optionally apply AI verification
+            import os as _os
+            ai_mode = _os.getenv("GHOSTLIGHT_AI_FILTER", "auto")
+            if ai_mode != "off" and detailed:
+                ai_verified = []
+                for bucket, pattern_name, matches in filtered:
+                    matched_value = str(matches[0]) if matches else ""
+                    is_tp, _reason = ai_classify_detection(
+                        pattern_name=pattern_name,
+                        matched_value=matched_value,
+                        sample_text=sample,
+                        table_name=f"{schema}.{table}",
+                        db_engine="postgres",
+                        column_names=columns,
+                        use_ai=ai_mode
+                    )
+                    if is_tp:
+                        ai_verified.append((bucket, pattern_name, matches))
+                filtered = ai_verified
             earliest_line, snippet_line = earliest_line_and_snippet(sample, filtered)
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             if classifications:
@@ -269,6 +289,25 @@ class MySQLScanner(Scanner):
             sample = "\n".join(str(r) for r in rows)[: config.sample_bytes]
             detailed = classify_text_detailed(sample)
             filtered = apply_context_filters(detailed, sample, table_name=table, db_engine="mysql")
+            # Optionally apply AI verification
+            import os as _os
+            ai_mode = _os.getenv("GHOSTLIGHT_AI_FILTER", "auto")
+            if ai_mode != "off" and detailed:
+                ai_verified = []
+                for bucket, pattern_name, matches in filtered:
+                    matched_value = str(matches[0]) if matches else ""
+                    is_tp, _reason = ai_classify_detection(
+                        pattern_name=pattern_name,
+                        matched_value=matched_value,
+                        sample_text=sample,
+                        table_name=table,
+                        db_engine="mysql",
+                        column_names=columns,
+                        use_ai=ai_mode
+                    )
+                    if is_tp:
+                        ai_verified.append((bucket, pattern_name, matches))
+                filtered = ai_verified
             earliest_line, snippet_line = earliest_line_and_snippet(sample, filtered)
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             if classifications:
@@ -325,6 +364,25 @@ class MongoScanner(Scanner):
             sample = "\n".join(str(d) for d in docs)[: config.sample_bytes]
             detailed = classify_text_detailed(sample)
             filtered = apply_context_filters(detailed, sample, table_name=coll, db_engine="mongodb")
+            # Optionally apply AI verification
+            import os as _os
+            ai_mode = _os.getenv("GHOSTLIGHT_AI_FILTER", "auto")
+            if ai_mode != "off" and detailed:
+                ai_verified = []
+                for bucket, pattern_name, matches in filtered:
+                    matched_value = str(matches[0]) if matches else ""
+                    is_tp, _reason = ai_classify_detection(
+                        pattern_name=pattern_name,
+                        matched_value=matched_value,
+                        sample_text=sample,
+                        table_name=coll,
+                        db_engine="mongodb",
+                        column_names=None,
+                        use_ai=ai_mode
+                    )
+                    if is_tp:
+                        ai_verified.append((bucket, pattern_name, matches))
+                filtered = ai_verified
             earliest_line, snippet_line = earliest_line_and_snippet(sample, filtered)
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             if classifications:
@@ -359,6 +417,25 @@ class RedisScanner(Scanner):
                 continue
             detailed = classify_text_detailed(text)
             filtered = apply_context_filters(detailed, text, db_engine="redis")
+            # Optionally apply AI verification
+            import os as _os
+            ai_mode = _os.getenv("GHOSTLIGHT_AI_FILTER", "auto")
+            if ai_mode != "off" and detailed:
+                ai_verified = []
+                for bucket, pattern_name, matches in filtered:
+                    matched_value = str(matches[0]) if matches else ""
+                    is_tp, _reason = ai_classify_detection(
+                        pattern_name=pattern_name,
+                        matched_value=matched_value,
+                        sample_text=text,
+                        table_name=str(k),
+                        db_engine="redis",
+                        column_names=None,
+                        use_ai=ai_mode
+                    )
+                    if is_tp:
+                        ai_verified.append((bucket, pattern_name, matches))
+                filtered = ai_verified
             earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             if classifications:
@@ -394,6 +471,25 @@ class FirebaseScanner(Scanner):
             sample = "\n".join(str(r) for r in rows)[: config.sample_bytes]
             detailed = classify_text_detailed(sample)
             filtered = apply_context_filters(detailed, sample, table_name=coll, db_engine="firestore")
+            # Optionally apply AI verification
+            import os as _os
+            ai_mode = _os.getenv("GHOSTLIGHT_AI_FILTER", "auto")
+            if ai_mode != "off" and detailed:
+                ai_verified = []
+                for bucket, pattern_name, matches in filtered:
+                    matched_value = str(matches[0]) if matches else ""
+                    is_tp, _reason = ai_classify_detection(
+                        pattern_name=pattern_name,
+                        matched_value=matched_value,
+                        sample_text=sample,
+                        table_name=coll,
+                        db_engine="firestore",
+                        column_names=None,
+                        use_ai=ai_mode
+                    )
+                    if is_tp:
+                        ai_verified.append((bucket, pattern_name, matches))
+                filtered = ai_verified
             earliest_line, snippet_line = earliest_line_and_snippet(sample, filtered)
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             if classifications:
