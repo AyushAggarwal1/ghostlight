@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import stat
+import getpass
 from typing import Iterable, List, Tuple
 
 try:
@@ -54,7 +55,18 @@ class VMScanner(Scanner):
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
             logger.info(f"Connecting to {host} as {user}...")
+            # Try SSH key authentication first
             ssh.connect(hostname=host, username=user, timeout=10)
+        except paramiko.AuthenticationException:
+            # If key auth fails, try password authentication
+            try:
+                logger.info("SSH key authentication failed, trying password authentication...")
+                password = getpass.getpass(f"Enter password for {user}@{host}: ")
+                ssh.connect(hostname=host, username=user, password=password, timeout=10)
+                logger.info("Password authentication successful")
+            except Exception as e:
+                logger.error(f"Password authentication failed: {e}")
+                return []
         except Exception as e:
             logger.error(f"Failed to connect to {host}: {e}")
             return []
@@ -163,6 +175,9 @@ class VMScanner(Scanner):
                     for (b, name, matches) in filtered
                 ]
                 
+                # Build classifications from filtered patterns
+                classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
+                
                 if not classifications:
                     continue
                 
@@ -173,9 +188,6 @@ class VMScanner(Scanner):
                 sens, sens_factors = compute_sensitivity_score(detections)
                 expo, expo_factors = compute_exposure_factor("vm", {"host": host})
                 risk, risk_level = compute_risk(sens, expo)
-                
-                # Build classifications from filtered patterns and compute snippet
-                classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
                 earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
                 logger.info(f"Found {len(detections)} detection(s) in {full_path}")
                 
