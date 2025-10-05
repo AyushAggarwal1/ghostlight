@@ -63,6 +63,9 @@ class GitScanner(Scanner):
                 shutil.rmtree(tmp_dir, ignore_errors=True)
             return []
         
+        # Use the original target as the display resource for remote scans, otherwise use the local root
+        display_resource = target if is_remote else root
+
         scanned_count = 0
         for blob in repo.head.commit.tree.traverse():
             if blob.type != "blob":
@@ -97,15 +100,21 @@ class GitScanner(Scanner):
             logger.info(f"Found {len(detections)} detection(s) in {blob.path}")
             
             earliest_line, snippet_line = earliest_line_and_snippet(text, filtered)
+
+            # Build location that avoids leaking temporary clone paths for remote repositories
+            if is_remote:
+                location_path = f"{target.rstrip('/')}/{blob.path}"
+            else:
+                location_path = path
             yield Finding(
                 id=f"git:{blob.hexsha[:8]}/{blob.path}",
-                resource=root,
-                location=f"{path}:{earliest_line or 1}",
+                resource=display_resource,
+                location=f"{location_path}:{earliest_line or 1}",
                 classifications=classifications,
                 evidence=[Evidence(snippet=snippet_line)],
                 severity=sev,
                 data_source="git",
-                profile=root,
+                profile=display_resource,
                 file_path=blob.path,
                 severity_description=desc,
                 detections=detections,
