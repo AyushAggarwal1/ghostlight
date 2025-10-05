@@ -50,6 +50,7 @@ class SlackScanner(Scanner):
                 continue
 
             for msg in resp.get('messages', []):
+                ts = msg.get('ts') or ''
                 text = (msg.get('text') or '')[: config.sample_bytes]
                 if not text:
                     continue
@@ -120,7 +121,6 @@ class SlackScanner(Scanner):
                 if not user_name:
                     user_name = 'unknown'
 
-                ts = msg.get('ts') or ''
                 permalink = ''
                 try:
                     pl = client.chat_getPermalink(channel=ch, message_ts=ts)
