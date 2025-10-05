@@ -109,9 +109,9 @@ SECRETS_RULES = {
 	# Basic auth in URL
 	"Secrets.BasicAuth.URL": re.compile(r"(?i)[a-zA-Z]{3,10}://[^/\s:@]{3,20}:[^/\s:@]{3,20}@.{1,100}[\"'\s]"),
 	# Additional patterns
-	"Secrets.RSA.PrivateKey": re.compile(r"-----BEGIN RSA PRIVATE KEY-----"),
-	"Secrets.OpenSSH.PrivateKey": re.compile(r"-----BEGIN OPENSSH PRIVATE KEY-----"),
-	"Secrets.PGP.PrivateKey": re.compile(r"-----BEGIN PGP PRIVATE KEY BLOCK-----"),
+	"Secrets.RSA.PrivateKey": re.compile(r"-----BEGIN RSA PRIVATE KEY-----\s*\n[A-Za-z0-9+/=\s]+\n-----END RSA PRIVATE KEY-----"),
+	"Secrets.OpenSSH.PrivateKey": re.compile(r"-----BEGIN OPENSSH PRIVATE KEY-----\s*\n[A-Za-z0-9+/=\s]+\n-----END OPENSSH PRIVATE KEY-----"),
+	"Secrets.PGP.PrivateKey": re.compile(r"-----BEGIN PGP PRIVATE KEY BLOCK-----\s*\n[A-Za-z0-9+/=\s]+\n-----END PGP PRIVATE KEY BLOCK-----"),
 	"Secrets.Generic.BearerToken": re.compile(r"\bBearer\s+[A-Za-z0-9\-._~+/]+=*", re.IGNORECASE),
 	"Secrets.Database.ConnectionString": re.compile(r"(?i)(mongodb|mysql|postgresql|redis|sqlserver)://[^\s]+"),
 	# Azure Storage connection string
