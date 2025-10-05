@@ -11,6 +11,7 @@ except Exception:  # pragma: no cover
 
 from ghostlight.classify.engine import classify_text_detailed, score_severity
 from ghostlight.classify.filters import apply_context_filters
+from ghostlight.classify.ai_filter import ai_classify_detection
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.utils.logging import get_logger
@@ -52,6 +53,31 @@ class GDriveWorkspaceScanner(Scanner):
                     name = f.get('name', '')
                     detailed = classify_text_detailed(name)
                     filtered = apply_context_filters(detailed, name)
+                    # Optionally apply AI verification
+                    import os as _os
+                    ai_mode = _os.getenv("GHOSTLIGHT_AI_FILTER", "auto")
+                    if ai_mode != "off" and detailed:
+                        try:
+                            logger.info(
+                                f"AI filter enabled (mode={ai_mode}) for gws file {user_email}/{name} with {len(filtered)} detections pre-AI"
+                            )
+                        except Exception:
+                            logger.debug("AI filter start log failed (gws)")
+                        ai_verified = []
+                        for bucket, pattern_name, matches in filtered:
+                            matched_value = str(matches[0]) if matches else ""
+                            is_tp, _reason = ai_classify_detection(
+                                pattern_name=pattern_name,
+                                matched_value=matched_value,
+                                sample_text=name,
+                                table_name=f"{user_email}/{name}",
+                                db_engine="gdrive_workspace",
+                                column_names=None,
+                                use_ai=ai_mode
+                            )
+                            if is_tp:
+                                ai_verified.append((bucket, pattern_name, matches))
+                        filtered = ai_verified
                     if not filtered:
                         continue
                     detections = [

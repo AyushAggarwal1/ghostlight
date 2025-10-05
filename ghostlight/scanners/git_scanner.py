@@ -10,6 +10,7 @@ from git import Repo, InvalidGitRepositoryError, NoSuchPathError
 
 from ghostlight.classify.engine import classify_text_detailed, score_severity
 from ghostlight.classify.filters import apply_context_filters
+from ghostlight.classify.ai_filter import ai_classify_detection
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
 from ghostlight.utils.snippets import earliest_line_and_snippet
@@ -80,6 +81,30 @@ class GitScanner(Scanner):
             detailed = classify_text_detailed(text)
             # Apply context-aware filters (entropy, structure) and build classes/detections from filtered
             filtered = apply_context_filters(detailed, text, min_entropy=config.min_entropy)
+            # Optionally apply AI verification
+            ai_mode = os.getenv("GHOSTLIGHT_AI_FILTER", "auto")
+            if ai_mode != "off" and detailed:
+                try:
+                    logger.info(
+                        f"AI filter enabled (mode={ai_mode}) for blob {blob.path} with {len(filtered)} detections pre-AI"
+                    )
+                except Exception:
+                    logger.debug("AI filter start log failed (git)")
+                ai_verified = []
+                for bucket, pattern_name, matches in filtered:
+                    matched_value = str(matches[0]) if matches else ""
+                    is_tp, _reason = ai_classify_detection(
+                        pattern_name=pattern_name,
+                        matched_value=matched_value,
+                        sample_text=text,
+                        table_name=blob.path,
+                        db_engine="git",
+                        column_names=None,
+                        use_ai=ai_mode
+                    )
+                    if is_tp:
+                        ai_verified.append((bucket, pattern_name, matches))
+                filtered = ai_verified
             classifications = [f"{b}:{n}" for (b, n, _m) in filtered]
             if not classifications:
                 continue
