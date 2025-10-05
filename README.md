@@ -109,13 +109,13 @@ Docker
 ------
 
 ```bash
-docker pull ayush1136/ghostlight:latest
+docker pull ayush1136/ghostlight
 ```
 
 Run (basic):
 ```bash
 docker run --rm \
-  ayush1136/ghostlight:latest \
+  ayush1136/ghostlight \
   --help
 ```
 
@@ -124,7 +124,7 @@ Run a scan and write results to host (recommended):
 mkdir -p ./scan_result
 docker run --rm \
   -v $(pwd)/scan_result:/out \
-  ayush1136/ghostlight:latest \
+  ayush1136/ghostlight \
   scan --scanner fs --target /app \
   --format json --output /out/fs.json
 ```
