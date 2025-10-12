@@ -199,9 +199,10 @@ def main():
 @click.option("--min-entropy", type=float, default=3.5, help="Min entropy for secrets (higher = stricter)")
 @click.option("--deep", is_flag=True, default=True, help="Deep scan (more bytes/rows by default)")
 @click.option("--sample-rows", type=int, default=1000, help="Rows to sample per DB table")
-def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_file_mb: int, sample_bytes: int, list_tables: bool, show_sql: bool, strict: bool, min_entropy: float, deep: bool, sample_rows: int):
+@click.option("--use-custom-recognizers", is_flag=True, default=True, help="Use custom recognizers for enhanced validation")
+def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_file_mb: int, sample_bytes: int, list_tables: bool, show_sql: bool, strict: bool, min_entropy: float, deep: bool, sample_rows: int, use_custom_recognizers: bool):
     _print_magnifier()
-    config = ScanConfig(max_file_mb=max_file_mb, sample_bytes=sample_bytes, list_tables=list_tables, show_sql=show_sql, strict=strict, min_entropy=min_entropy, deep=deep, sample_rows=sample_rows)
+    config = ScanConfig(max_file_mb=max_file_mb, sample_bytes=sample_bytes, list_tables=list_tables, show_sql=show_sql, strict=strict, min_entropy=min_entropy, deep=deep, sample_rows=sample_rows, use_custom_recognizers=use_custom_recognizers)
     
     # Preflight connectivity checks per scanner
     def preflight_check(name: str, tgt: str) -> bool:

@@ -147,7 +147,7 @@ def classify_text(text: str) -> Dict[str, List[str]]:
 	return labels
 
 
-def classify_text_detailed(text: str) -> List[Tuple[str, str, List[str]]]:
+def classify_text_detailed(text: str, use_custom_recognizers: bool = True) -> List[Tuple[str, str, List[str]]]:
 	# Returns list of (bucket, pattern_name, matches)
 	detailed: List[Tuple[str, str, List[str]]] = []
 	corpus = text or ""
@@ -160,6 +160,16 @@ def classify_text_detailed(text: str) -> List[Tuple[str, str, List[str]]]:
 				found = [name] if pattern.search(corpus) else []
 			if found:
 				detailed.append((bucket, name, found))
+	
+	# Apply custom recognizer validation if enabled
+	if use_custom_recognizers:
+		try:
+			from .custom_recognizer_integration import custom_recognizer_integration
+			detailed = custom_recognizer_integration.validate_detections(detailed, corpus)
+		except ImportError:
+			# Custom recognizers not available, continue with original results
+			pass
+	
 	return detailed
 
 

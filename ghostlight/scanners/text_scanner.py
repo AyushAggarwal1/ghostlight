@@ -14,8 +14,8 @@ class TextScanner(Scanner):
     def scan(self, target: str, config: ScanConfig) -> Iterable[Finding]:
         # target is raw text
         text = target[: config.sample_bytes]
-        detailed = classify_text_detailed(text)
-        filtered = apply_context_filters(detailed, text)
+        detailed = classify_text_detailed(text, use_custom_recognizers=config.use_custom_recognizers)
+        filtered = apply_context_filters(detailed, text, use_custom_recognizers=config.use_custom_recognizers)
         if not filtered:
             return []
         detections = [
