@@ -222,8 +222,8 @@ detailed = classify_text_detailed(text, use_custom_recognizers=False)
 ### 1. Import Errors
 If you encounter import errors:
 ```bash
-# Ensure recognizers directory is in the path
-export PYTHONPATH="${PYTHONPATH}:/path/to/ghostlight/recognizers"
+# Ensure custom_recognizers directory is in the path
+export PYTHONPATH="${PYTHONPATH}:/path/to/ghostlight/custom_recognizers"
 ```
 
 ### 2. Configuration Issues

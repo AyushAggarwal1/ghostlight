@@ -9,7 +9,7 @@ from typing import List, Tuple, Dict, Optional, Set
 import re
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'recognizers'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'custom_recognizers'))
 from data_processor import DataProcessor
 from base_recognizer import RecognizerResult
 
