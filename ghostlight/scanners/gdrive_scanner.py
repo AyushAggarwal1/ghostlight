@@ -100,8 +100,19 @@ class GDriveScanner(Scanner):
                     else:
                         req = service.files().get_media(fileId=f['id'])
                         data = req.execute()
-                        # Extract text from binary if needed
-                        text = extract_text_from_file(None, config.sample_bytes, content_bytes=data)  # type: ignore
+                        # Extract text from binary if needed (write to temp file to reuse extractor)
+                        import tempfile
+                        import os as _os
+                        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                            tmp.write(data)
+                            tmp_path = tmp.name
+                        try:
+                            text = extract_text_from_file(tmp_path, config.sample_bytes) or ""
+                        finally:
+                            try:
+                                _os.unlink(tmp_path)
+                            except Exception:
+                                pass
                     text = text[: config.sample_bytes]
                 except Exception:
                     continue
@@ -119,13 +130,14 @@ class GDriveScanner(Scanner):
                     except Exception:
                         logger.debug("AI filter start log failed (gdrive)")
                     ai_verified = []
+                    full_path = _build_full_path(f['name'], f.get('parents'))
                     for bucket, pattern_name, matches in filtered:
                         matched_value = str(matches[0]) if matches else ""
                         is_tp, _reason = ai_classify_detection(
                             pattern_name=pattern_name,
                             matched_value=matched_value,
                             sample_text=text,
-                            table_name=full_path if 'full_path' in locals() else f.get('name',''),
+                            table_name=full_path,
                             db_engine="gdrive",
                             column_names=None,
                             use_ai=ai_mode

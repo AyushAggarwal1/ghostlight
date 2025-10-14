@@ -1,0 +1,55 @@
+# Ghostlight Allowlist Configuration (example)
+#
+# How to use:
+# 1) Point to this file (or your own) via env var:
+#      export GHOSTLIGHT_ALLOWLIST_FILE=/absolute/path/to/allowlist.yaml
+#    -or-
+# 2) Inline JSON via env var (useful in CI):
+#      export GHOSTLIGHT_ALLOWLIST='{"paths":["**/node_modules/**"],"patterns":["PII.IPv4"]}'
+#
+# Behavior:
+# - tables: DB table allowlist. If a table matches, all detections are skipped for it.
+#   Keys are engine names (postgres/mysql) or "*" for all engines. Glob-style patterns are supported.
+# - paths: File path allowlist for non-DB scanners (fs, git, s3/gcs/azure object keys, etc.). Glob-style patterns.
+# - patterns: Pattern names to drop globally (e.g., "PII.Email").
+#
+# Notes:
+# - This runs before system-table filtering and before per-pattern validators.
+# - For DB scanners, `table_name` is the database table (optionally schema-qualified).
+# - For file/object scanners, `table_name` carries a relative path or object key.
+
+# Skip entire tables (by engine)
+# If a table matches any glob here, all detections from that table are ignored
+# Examples below silence noisy metadata/system tables and temp schema objects
+
+tables:
+  "*":
+    - "public.migrations"
+    - "logs.*"
+  postgres:
+    - "pg_*"
+    - "pg_toast.*"
+    - "information_schema.*"
+  mysql:
+    - "mysql.*"
+    - "performance_schema.*"
+    - "sys.*"
+
+# Skip files/keys/paths across non-DB scanners
+# These patterns apply to filesystem, git, cloud object keys, etc.
+
+paths:
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/*.min.js"
+  - "**/.next/**"
+  - "logs/*.log"
+
+# Drop specific pattern types everywhere (use sparingly)
+# List of pattern names as emitted by your classifier (examples shown)
+
+patterns:
+  - "PII.IPv4"
+  - "PII.Coordinates"
+  # - "PII.Email"
