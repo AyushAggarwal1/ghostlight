@@ -15,6 +15,7 @@ except Exception:  # pragma: no cover
     boto3 = None
 
 from ghostlight.classify.engine import classify_text, classify_text_detailed, score_severity
+from ghostlight.classify.ai_filter import ai_classify_detection
 from ghostlight.risk.scoring import compute_sensitivity_score, compute_exposure_factor, compute_risk
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
 from ghostlight.utils.logging import get_logger
@@ -210,7 +211,7 @@ find {path} -type f \\
         # Classify text
         labels = classify_text(text)
         detailed = classify_text_detailed(text)
-        
+        # Start from detailed and apply AI optional filter
         classifications = [
             f"GDPR:{l}" for l in labels.get("GDPR", [])
         ] + [
@@ -222,13 +223,32 @@ find {path} -type f \\
         ] + [
             f"IP:{l}" for l in labels.get("IP", [])
         ]
-        
-        detections = [
-            Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])
-            for (b, name, matches) in detailed
-        ]
-        
-        if not classifications:
+        # Apply AI verification to detailed hits to reduce FPs
+        ai_mode = os.getenv("GHOSTLIGHT_AI_FILTER", "auto")
+        filtered = detailed
+        if ai_mode != "off" and detailed:
+            try:
+                logger.info(
+                    f"AI filter enabled (mode={ai_mode}) for ec2 file {file_path} with {len(filtered)} detections pre-AI"
+                )
+            except Exception:
+                pass
+            ai_verified = []
+            for bucket, pattern_name, matches in filtered:
+                matched_value = str(matches[0]) if matches else ""
+                is_tp, _reason = ai_classify_detection(
+                    pattern_name=pattern_name,
+                    matched_value=matched_value,
+                    sample_text=text,
+                    table_name=file_path,
+                    db_engine="ec2",
+                    column_names=None,
+                    use_ai=ai_mode
+                )
+                if is_tp:
+                    ai_verified.append((bucket, pattern_name, matches))
+            filtered = ai_verified
+        if not filtered and not classifications:
             return
         
         sev, desc = score_severity(len(detections), sum(len(d.matches) for d in detections))
@@ -236,14 +256,14 @@ find {path} -type f \\
         expo, expo_factors = compute_exposure_factor("ec2", {"instance_id": instance_id})
         risk, risk_level = compute_risk(sens, expo)
         
-        earliest_line, snippet_line = earliest_line_and_snippet(text, detailed)
+        earliest_line, snippet_line = earliest_line_and_snippet(text, filtered or detailed)
         logger.info(f"Found {len(detections)} detection(s) in {file_path}")
         
         yield Finding(
             id=f"ec2:{instance_id}{file_path}",
             resource=instance_id,
             location=f"ec2://{instance_id}{file_path}:{earliest_line or 1}",
-            classifications=classifications,
+            classifications=[f"{b}:{n}" for (b, n, _m) in (filtered or detailed)] or classifications,
             evidence=[Evidence(snippet=snippet_line)],
             severity=sev,
             data_source="ec2",
@@ -251,7 +271,10 @@ find {path} -type f \\
             bucket_name=None,
             file_path=file_path,
             severity_description=desc,
-            detections=detections,
+            detections=[
+                Detection(bucket=b, pattern_name=name, matches=matches, sample_text=text[:200])
+                for (b, name, matches) in (filtered or detailed)
+            ],
             risk_score=risk,
             risk_level=risk_level,
             risk_factors=sens_factors + expo_factors,

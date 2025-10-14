@@ -224,7 +224,7 @@ class ConfluenceScanner(Scanner):
 					logger.error(f"Confluence page fetch failed (id={page_id}): {e}")
 					continue
 
-				storage_html = (((doc.get("body") or {}).get("storage") or {}).get("value") or "")
+                storage_html = (((doc.get("body") or {}).get("storage") or {}).get("value") or "")
 				text_parts: List[str] = []
 				text_full = _strip_html(storage_html)
 				if text_full:
@@ -260,12 +260,14 @@ class ConfluenceScanner(Scanner):
 				except Exception:
 					pass
 
-				text = ("\n".join(text_parts)).strip()[: config.sample_bytes]
+                text = ("\n".join(text_parts)).strip()[: config.sample_bytes]
 				if not text.strip():
 					continue
 
 				detailed = classify_text_detailed(text)
-				filtered = apply_context_filters(detailed, text, min_entropy=config.min_entropy)
+                filtered = apply_context_filters(detailed, text, min_entropy=config.min_entropy)
+                # Resolve space key early for consistent context
+                space_key = ((doc.get("space") or {}).get("key") or space)
 				# Optionally apply AI verification
 				ai_mode = os.getenv("GHOSTLIGHT_AI_FILTER", "auto")
 				if ai_mode != "off" and detailed:
@@ -282,7 +284,7 @@ class ConfluenceScanner(Scanner):
 							pattern_name=pattern_name,
 							matched_value=matched_value,
 							sample_text=text,
-							table_name=f"{space_key}:{title or page_id}",
+                            table_name=f"{space_key}:{title or page_id}",
 							db_engine="confluence",
 							column_names=None,
 							use_ai=ai_mode
@@ -297,7 +299,7 @@ class ConfluenceScanner(Scanner):
 				version_num = str(((doc.get("version") or {}).get("number") or ""))
 				updated = str(((doc.get("history") or {}).get("lastUpdated") or {}).get("when") or "")
 				updated_by = str((((doc.get("history") or {}).get("lastUpdated") or {}).get("by") or {}).get("displayName") or "")
-				space_key = ((doc.get("space") or {}).get("key") or space)
+                # space_key already resolved above
 				links = doc.get("_links") or {}
 				webui = links.get("webui") or ""
 				base_href = links.get("base") or api_base
