@@ -13,9 +13,13 @@ from typing import Iterable, Optional, Dict
 from urllib.parse import urlparse
 
 try:
-    import psycopg2  # type: ignore
+    # Prefer psycopg3 if available
+    import psycopg as psycopg2  # type: ignore
 except Exception:  # pragma: no cover
-    psycopg2 = None
+    try:
+        import psycopg2  # type: ignore
+    except Exception:  # pragma: no cover
+        psycopg2 = None
 
 try:
     import pymysql  # type: ignore

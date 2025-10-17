@@ -262,7 +262,10 @@ def scan_cmd(scanner: str, target: str, fmt: str, output: Optional[str], max_fil
                     console.print("[green]Azure connection string OK[/green]")
                 return True
             if name == "postgres":
-                import psycopg2  # type: ignore
+                try:
+                    import psycopg as psycopg2  # type: ignore
+                except Exception:
+                    import psycopg2  # type: ignore
                 # Accept full URL or DSN string without splitting
                 conn = psycopg2.connect(tgt, connect_timeout=5)
                 conn.close()
