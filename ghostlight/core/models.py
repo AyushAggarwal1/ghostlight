@@ -48,6 +48,8 @@ class ScanConfig:
     # Deep scanning
     deep: bool = True
     sample_rows: int = 1000
+    # Custom recognizers
+    use_custom_recognizers: bool = True  # Enable custom recognizer validation
 
 
 @dataclass
