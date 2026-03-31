@@ -575,7 +575,8 @@ def apply_context_filters(
     text: str,
     table_name: str = None,
     db_engine: str = "mysql",
-    min_entropy: float = 3.5
+    min_entropy: float = 3.5,
+    use_custom_recognizers: bool = True
 ) -> List[Tuple[str, str, List[str]]]:
     """
     Apply context-aware filters to reduce false positives
@@ -667,6 +668,15 @@ def apply_context_filters(
         # Only include if we still have matches
         if filtered_matches:
             filtered_detections.append((bucket, pattern_name, filtered_matches))
+    
+    # Apply custom recognizer validation if enabled
+    if use_custom_recognizers:
+        try:
+            from .custom_recognizer_integration import custom_recognizer_integration
+            filtered_detections = custom_recognizer_integration.validate_detections(filtered_detections, text)
+        except ImportError:
+            # Custom recognizers not available, continue with original results
+            pass
     
     return filtered_detections
 
