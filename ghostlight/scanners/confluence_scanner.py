@@ -282,7 +282,8 @@ class ConfluenceScanner(Scanner):
 							pattern_name=pattern_name,
 							matched_value=matched_value,
 							sample_text=text,
-							table_name=f"{space_key}:{title or page_id}",
+							# table_name=f"{space_key}:{title or page_id}",
+							table_name="confluence_scans",
 							db_engine="confluence",
 							column_names=None,
 							use_ai=ai_mode
