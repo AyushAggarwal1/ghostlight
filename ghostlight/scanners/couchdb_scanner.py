@@ -8,6 +8,7 @@ except Exception:  # pragma: no cover
     couchdb = None
 
 from ghostlight.classify.engine import classify_text_detailed, score_severity
+from ghostlight.classify.ai_filter import ai_classify_detection
 from ghostlight.classify.filters import apply_context_filters
 from ghostlight.core.models import Evidence, Finding, ScanConfig, Detection
 from ghostlight.utils.snippets import earliest_line_and_snippet
@@ -25,7 +26,8 @@ class CouchDBScanner(Scanner):
             logger.error("couchdb library not available")
             return []
         try:
-            dsn, dbs = target.split(":", 1)
+            # Split from the right to preserve URL scheme like http:// or https://
+            dsn, dbs = target.rsplit(":", 1)
             db_list = [d for d in dbs.split(",") if d]
             server = couchdb.Server(dsn)
         except Exception:
@@ -43,6 +45,25 @@ class CouchDBScanner(Scanner):
             sample = "\n".join(rows)[: config.sample_bytes]
             detailed = classify_text_detailed(sample)
             filtered = apply_context_filters(detailed, sample, table_name=dbname, db_engine="couchdb")
+            # Optionally apply AI verification
+            import os as _os
+            ai_mode = _os.getenv("GHOSTLIGHT_AI_FILTER", "auto")
+            if ai_mode != "off" and detailed:
+                ai_verified = []
+                for bucket, pattern_name, matches in filtered:
+                    matched_value = str(matches[0]) if matches else ""
+                    is_tp, _reason = ai_classify_detection(
+                        pattern_name=pattern_name,
+                        matched_value=matched_value,
+                        sample_text=sample,
+                        table_name=dbname,
+                        db_engine="couchdb",
+                        column_names=None,
+                        use_ai=ai_mode
+                    )
+                    if is_tp:
+                        ai_verified.append((bucket, pattern_name, matches))
+                filtered = ai_verified
             if not filtered:
                 continue
             earliest_line, snippet_line = earliest_line_and_snippet(sample, filtered)

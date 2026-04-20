@@ -6,6 +6,7 @@ from typing import List, Tuple
 import base64
 import json
 from typing import Optional
+import os as _os
 
 # Optional dependencies for language/i18n
 try:
@@ -17,6 +18,104 @@ try:
     import phonenumbers as _phonenumbers  # type: ignore
 except Exception:  # pragma: no cover
     _phonenumbers = None  # type: ignore
+
+# Optional DNS resolver for MX checks
+try:
+    import dns.resolver as _dns_resolver  # type: ignore
+except Exception:  # pragma: no cover
+    _dns_resolver = None  # type: ignore
+
+# Simple in-memory cache for MX lookups during a single run
+_mx_cache: dict[str, Optional[bool]] = {}
+
+# Allowlist configuration (cached)
+_allowlist_loaded: bool = False
+_allowlist: dict = {}
+
+def _load_allowlist() -> None:
+    global _allowlist_loaded, _allowlist
+    if _allowlist_loaded:
+        return
+    _allowlist_loaded = True
+    cfg_str = _os.getenv("GHOSTLIGHT_ALLOWLIST")
+    cfg_file = _os.getenv("GHOSTLIGHT_ALLOWLIST_FILE")
+    data = None
+    if cfg_str:
+        try:
+            data = json.loads(cfg_str)
+        except Exception:
+            data = None
+    if data is None and cfg_file:
+        try:
+            with open(cfg_file, "r", encoding="utf-8") as fh:
+                body = fh.read()
+            try:
+                data = json.loads(body)
+            except Exception:
+                # Try YAML if available
+                try:
+                    import yaml  # type: ignore
+                    data = yaml.safe_load(body)
+                except Exception:
+                    data = None
+        except Exception:
+            data = None
+    if isinstance(data, dict):
+        _allowlist = data
+    else:
+        _allowlist = {}
+
+def _is_allowlisted_table(table_name: Optional[str], engine: str) -> bool:
+    if not table_name:
+        return False
+    _load_allowlist()
+    cfg = _allowlist.get("tables") or {}
+    eng = (engine or "").lower()
+    patterns: list = []
+    # Global tables (key "*") and engine-specific
+    if isinstance(cfg, dict):
+        patterns.extend(cfg.get("*", []) or [])
+        patterns.extend(cfg.get(eng, []) or [])
+    if not patterns:
+        return False
+    try:
+        import fnmatch as _fnmatch  # local import to avoid global dependency
+        for pat in patterns:
+            try:
+                if _fnmatch.fnmatch(table_name, str(pat)):
+                    return True
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return False
+
+def _is_allowlisted_path(table_name: Optional[str]) -> bool:
+    if not table_name:
+        return False
+    _load_allowlist()
+    patterns = _allowlist.get("paths") or []
+    if not isinstance(patterns, list) or not patterns:
+        return False
+    try:
+        import fnmatch as _fnmatch
+        for pat in patterns:
+            try:
+                if _fnmatch.fnmatch(table_name, str(pat)):
+                    return True
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return False
+
+def _is_allowlisted_pattern(pattern_name: str) -> bool:
+    _load_allowlist()
+    pats = _allowlist.get("patterns") or []
+    try:
+        return str(pattern_name) in set(map(str, pats))
+    except Exception:
+        return False
 
 
 # MySQL system tables that commonly contain metadata, not real PII
@@ -430,20 +529,43 @@ def clean_slack_mailto(email_like: str) -> str:
 
 
 def filter_email_matches(matches: List[str]) -> List[str]:
-    """Normalize Slack mailto and drop obvious placeholders/domains."""
+    """Normalize Slack mailto; drop placeholders; optionally validate MX records.
+
+    If env GHOSTLIGHT_VALIDATE_EMAIL_MX=1 and dnspython is available, we keep only
+    emails whose domain has an MX (or fallback A) record. Results are cached in-memory.
+    """
     cleaned: List[str] = []
+    mx_check = _os.getenv("GHOSTLIGHT_VALIDATE_EMAIL_MX", "0") in {"1", "true", "TRUE"}
     for m in matches:
         addr = clean_slack_mailto(m)
-        # Drop well-known placeholder domains
+        # Drop obvious placeholders
         domain = addr.split("@")[-1].lower() if "@" in addr else ""
         if domain in {"example.com", "test.com", "example.org", "example.net", "dotenvx.com", "prisma.io"}:
             continue
-        # Drop a common placeholder address
         if addr.lower() == "user@email.com":
             continue
-        # Drop bracketed placeholders
         if any(tok in addr for tok in ["<", ">", "{", "}", "["]):
             continue
+        # Optional MX validation
+        if mx_check and _dns_resolver is not None and domain:
+            ok: Optional[bool]
+            if domain in _mx_cache:
+                ok = _mx_cache[domain]
+            else:
+                ok = None
+                try:
+                    # Prefer MX; fallback to A if MX missing
+                    answers = list(_dns_resolver.resolve(domain, "MX", lifetime=2.0))  # type: ignore[attr-defined]
+                    ok = bool(answers)
+                except Exception:
+                    try:
+                        answers = list(_dns_resolver.resolve(domain, "A", lifetime=2.0))  # type: ignore[attr-defined]
+                        ok = bool(answers)
+                    except Exception:
+                        ok = False
+                _mx_cache[domain] = ok
+            if not ok:
+                continue
         cleaned.append(addr)
     return cleaned
 
@@ -589,6 +711,11 @@ def apply_context_filters(
     Returns:
         Filtered list of detections
     """
+    # Skip allowlisted tables/paths/patterns entirely
+    # If table_name is a file path (non-DB scanners pass file path here), path rules will apply.
+    if _is_allowlisted_table(table_name, db_engine) or _is_allowlisted_path(table_name):
+        return []
+
     # Skip system tables entirely
     if table_name and is_system_table(table_name, db_engine):
         # Only keep SECRETS findings from system tables, filter out PII
@@ -601,6 +728,9 @@ def apply_context_filters(
     filtered_detections = []
     
     for bucket, pattern_name, matches in detections:
+        # Drop allowlisted patterns globally
+        if _is_allowlisted_pattern(pattern_name):
+            continue
         # Drop most PII from vendor-generated Prisma runtimes/builds to reduce noise
         if pattern_name in {"PII.IPv4", "PII.Coordinates", "PII.DOB", "PII.Email", "PII.SSN"}:
             lower = text.lower()
